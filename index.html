@@ -27,6 +27,8 @@
   --ped: #2a78d6;
   --pred: rgba(42,120,214,0.18);
   --cw-hit: #eb6834;
+  --angle-cw: #1baf7a;
+  --angle-hcw: #4a3aa7;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
@@ -48,6 +50,8 @@
     --ped: #3987e5;
     --pred: rgba(57,135,229,0.22);
     --cw-hit: #d95926;
+    --angle-cw: #199e70;
+    --angle-hcw: #9085e9;
   }
 }
 :root[data-theme="dark"] {
@@ -69,6 +73,8 @@
   --ped: #3987e5;
   --pred: rgba(57,135,229,0.22);
   --cw-hit: #d95926;
+  --angle-cw: #199e70;
+  --angle-hcw: #9085e9;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -190,6 +196,10 @@ table.vars input {
   padding: 2px 6px;
 }
 table.vars input.invalid { border-color: var(--bad); }
+.tog { display: flex; align-items: center; gap: 8px; margin: 5px 0; cursor: pointer; }
+.tog input { accent-color: var(--accent); margin: 0; }
+.tog .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.tog span { font: 12.5px ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; color: var(--ink2); }
 table.vars .desc { color: var(--muted); font-size: 11.5px; }
 #ruleCode {
   width: 100%;
@@ -288,6 +298,11 @@ table.vars .desc { color: var(--muted); font-size: 11.5px; }
     <details open>
       <summary>Scene</summary>
       <div class="body" id="controls"></div>
+    </details>
+
+    <details open>
+      <summary>Angle visualizations</summary>
+      <div class="body" id="angleToggles"></div>
     </details>
 
     <details open>
@@ -1072,6 +1087,38 @@ function syncControls() {
   for (const c of CONTROLS) if (c.key) controlEls[c.key].set(params[c.key]);
 }
 
+/* ---------------- angle visualization toggles ---------------- */
+
+const ANGLE_VIZ = [
+  { id: 'approach_angle', color: '--ink2' },
+  { id: 'trajectory_approach_angle', color: '--cw-hit' },
+  { id: 'crosswalk_angle', color: '--angle-cw' },
+  { id: 'heading_to_crosswalk_angle', color: '--angle-hcw' },
+];
+const angleViz = Object.fromEntries(ANGLE_VIZ.map(a => [a.id, true]));
+const angleLabelEls = {};
+
+function buildAngleToggles() {
+  const host = document.getElementById('angleToggles');
+  for (const a of ANGLE_VIZ) {
+    const row = document.createElement('label');
+    row.className = 'tog';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = angleViz[a.id];
+    cb.addEventListener('change', () => { angleViz[a.id] = cb.checked; draw(); });
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = `var(${a.color})`;
+    const name = document.createElement('span');
+    angleLabelEls[a.id] = name;
+    row.appendChild(cb);
+    row.appendChild(swatch);
+    row.appendChild(name);
+    host.appendChild(row);
+  }
+}
+
 /* ---------------- variables panel ---------------- */
 
 const IDENT_RE = /^[A-Za-z_]\w*$/;
@@ -1337,6 +1384,16 @@ function drawArrowHead(tip, heading, sizePx, color) {
   ctx.restore();
 }
 
+function drawRay(origin, heading, lenM, color, dashed) {
+  ctx.save();
+  if (dashed) ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.2;
+  linePath([origin, { x: origin.x + lenM * Math.cos(heading), y: origin.y + lenM * Math.sin(heading) }]);
+  ctx.stroke();
+  ctx.restore();
+}
+
 // arc between two world headings around a world point, radius in meters, with label
 function drawAngleArc(center, h1, h2, radiusM, label, color) {
   let d = (h2 - h1) % (2 * Math.PI);
@@ -1463,21 +1520,42 @@ function draw() {
   const tip = d.pathPts[d.pathPts.length - 1];
   drawArrowHead(tip, tip.h, 9, cssVar('--road-edge'));
 
+  // crosswalk angle: road direction vs crossing axis at the crosswalk center
+  if (angleViz.crosswalk_angle) {
+    const col = cssVar('--angle-cw');
+    let axisDir = d.axisH;
+    if (angDiffDeg(axisDir, d.cwPose.h) > 90) axisDir += Math.PI;  // pick the axis end forming the folded 0-90 angle
+    drawRay(d.cwPose, d.cwPose.h, params.cwWid / 2 + 4, col, true);
+    drawRay(d.cwPose, axisDir, params.cwLen / 2 + 2, col, true);
+    drawAngleArc(d.cwPose, d.cwPose.h, axisDir, params.cwWid / 2 + 2.5,
+      `${varNames.crosswalk_angle}=${scene.values.crosswalk_angle.toFixed(0)}°`, col);
+  }
+
+  // heading vs crossing axis at the pedestrian
+  if (angleViz.heading_to_crosswalk_angle) {
+    const col = cssVar('--angle-hcw');
+    drawRay(d.ped, d.axisH, 4.2, col, true);
+    drawAngleArc(d.ped, d.pedH, d.axisH, 3.4,
+      `${varNames.heading_to_crosswalk_angle}=${scene.values.heading_to_crosswalk_angle.toFixed(0)}°`, col);
+  }
+
   // nearest-point ray + approach angle arc
-  const muted = cssVar('--muted');
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = muted;
-  ctx.lineWidth = 1.2;
-  linePath([d.ped, d.np]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  const npS = w2s(d.np);
-  ctx.beginPath();
-  ctx.arc(npS.x, npS.y, 3, 0, 2 * Math.PI);
-  ctx.fillStyle = muted;
-  ctx.fill();
-  drawAngleArc(d.ped, d.pedH, d.towardPathH, 2.2,
-    `${varNames.approach_angle}=${scene.values.approach_angle.toFixed(0)}°`, cssVar('--ink2'));
+  if (angleViz.approach_angle) {
+    const muted = cssVar('--muted');
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = muted;
+    ctx.lineWidth = 1.2;
+    linePath([d.ped, d.np]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const npS = w2s(d.np);
+    ctx.beginPath();
+    ctx.arc(npS.x, npS.y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = muted;
+    ctx.fill();
+    drawAngleArc(d.ped, d.pedH, d.towardPathH, 2.2,
+      `${varNames.approach_angle}=${scene.values.approach_angle.toFixed(0)}°`, cssVar('--ink2'));
+  }
 
   // prediction
   if (d.predSeg) {
@@ -1498,7 +1576,7 @@ function draw() {
     ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
     ctx.fillStyle = cssVar('--cw-hit');
     ctx.fill();
-    if (Math.hypot(d.entry.x - d.ped.x, d.entry.y - d.ped.y) > 3.5) {
+    if (angleViz.trajectory_approach_angle && Math.hypot(d.entry.x - d.ped.x, d.entry.y - d.ped.y) > 3.5) {
       drawAngleArc(d.entry, d.pedH, d.entryTowardPathH, 1.5,
         `${varNames.trajectory_approach_angle}=${scene.values.trajectory_approach_angle.toFixed(0)}°`, cssVar('--cw-hit'));
     }
@@ -1600,6 +1678,7 @@ function update() {
   syncControls();
 
   for (const q of QUANTITIES) varValueEls[q.id].textContent = fmtValue(scene.values[q.id]);
+  for (const a of ANGLE_VIZ) angleLabelEls[a.id].textContent = varNames[a.id];
 
   const res = evalRule(scene.values);
   const verdict = document.getElementById('verdict');
@@ -1623,6 +1702,7 @@ function update() {
 /* ---------------- wiring ---------------- */
 
 buildControls();
+buildAngleToggles();
 buildVarRows();
 document.getElementById('ruleCode').value = DEFAULT_RULE;
 compileRule();
