@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "rule": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False",
+  "variable_names": {
+    "approach_angle": "approach_angle",
+    "trajectory_approach_angle": "trajectory_approach_angle",
+    "crosswalk_angle": "crosswalk_angle",
+    "heading_to_crosswalk_angle": "heading_to_crosswalk_angle",
+    "distance_to_path": "distance_to_path",
+    "distance_to_crosswalk": "distance_to_crosswalk",
+    "on_crosswalk": "on_crosswalk",
+    "prediction_hits_crosswalk": "prediction_hits_crosswalk",
+    "prediction_length": "prediction_length",
+    "speed": "speed",
+    "wide_safety_box_width": "wide_safety_box_width"
+  },
+  "scenarios": [
+    { "name": "Approaching, straight road", "expected": true,
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 7, "pedHeadingDeg": -90, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
+    { "name": "Walking parallel on sidewalk", "expected": false,
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 7, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
+    { "name": "Departed, far side, walking away", "expected": false,
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": -7, "pedHeadingDeg": -90, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
+    { "name": "Departing but still on the road", "expected": true,
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": -1, "pedHeadingDeg": -90, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
+    { "name": "Approaching on curved road", "expected": true,
+      "params": { "curvature": 0.02, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 24.28, "pedY": 14.51, "pedHeadingDeg": -55.6, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
+    { "name": "Cutting diagonally over angled crosswalk", "expected": true,
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 30, "cwLen": 12, "cwWid": 4, "pedX": 26.5, "pedY": 6.5, "pedHeadingDeg": -60, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
+    { "name": "Loitering on crosswalk, walking along road", "expected": true,
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 1.5, "pedHeadingDeg": 0, "speed": 1.0, "horizon": 3.0, "wideBox": 3.1 } }
+  ]
+}
