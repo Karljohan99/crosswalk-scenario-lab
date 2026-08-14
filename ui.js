@@ -848,6 +848,36 @@ document.getElementById('scenSave').addEventListener('click', () => {
   update();
 });
 
+document.getElementById('saveFileBtn').addEventListener('click', () => {
+  const blob = new Blob([exportJson() + '\n'], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'crosswalk_scenarios.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  const m = document.getElementById('ioMsg');
+  m.className = 'ok';
+  m.textContent = 'saved crosswalk_scenarios.json';
+});
+
+document.getElementById('loadFileBtn').addEventListener('click', () =>
+  document.getElementById('loadFileInput').click());
+
+document.getElementById('loadFileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const m = document.getElementById('ioMsg');
+  try {
+    importJson(await file.text());
+    m.className = 'ok';
+    m.textContent = `loaded ${scenarios.length} scenarios from ${file.name}`;
+  } catch (err) {
+    m.className = 'err';
+    m.textContent = `load failed: ${err.message}`;
+  }
+  e.target.value = '';
+});
+
 document.getElementById('exportBtn').addEventListener('click', () => {
   document.getElementById('ioText').value = exportJson();
   const m = document.getElementById('ioMsg');

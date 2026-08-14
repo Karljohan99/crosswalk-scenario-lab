@@ -67,6 +67,12 @@
     <details>
       <summary>Export / Import</summary>
       <div class="body">
+        <div class="scen-actions">
+          <button class="primary" id="saveFileBtn">Save to file</button>
+          <button id="loadFileBtn">Load from file</button>
+          <input type="file" id="loadFileInput" accept=".json,application/json" hidden>
+        </div>
+        <div class="hint">Saves scenarios + rule + variable names as JSON (goes to your downloads unless the browser asks where).</div>
         <textarea id="ioText" spellcheck="false" placeholder="JSON appears here on export; paste here to import"></textarea>
         <div class="scen-actions">
           <button id="exportBtn">Export to text box</button>
