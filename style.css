@@ -155,7 +155,10 @@ aside {
   overflow-y: hidden;
   padding-bottom: 10px;
 }
-#leftBar h2 { font-size: 14px; font-weight: 650; margin: 0 0 4px; flex: none; }
+#leftBar h2 { font-size: 14px; font-weight: 650; margin: 0 0 4px; flex: none; display: flex; justify-content: space-between; align-items: baseline; }
+#scenScore { font-size: 12.5px; font-weight: 650; color: var(--muted); }
+#scenScore.all-pass { color: var(--good); }
+#scenScore.has-fail { color: var(--bad); }
 #leftBar #scenList { flex: 1; overflow-y: auto; min-height: 0; margin: 0 -2px; padding: 0 2px; }
 #leftBar .scen-actions, #leftBar .hint { flex: none; }
 details { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }

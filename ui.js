@@ -323,14 +323,13 @@ function renderScenarios() {
     host.appendChild(row);
   });
 
+  const cls = !total ? '' : passCount === total ? 'all-pass' : 'has-fail';
   const score = document.getElementById('score');
-  if (!total) {
-    score.textContent = 'no scenarios';
-    score.className = '';
-  } else {
-    score.textContent = `${passCount}/${total} scenarios pass`;
-    score.className = passCount === total ? 'all-pass' : 'has-fail';
-  }
+  score.textContent = total ? `${passCount}/${total} scenarios pass` : 'no scenarios';
+  score.className = cls;
+  const scenScore = document.getElementById('scenScore');
+  scenScore.textContent = total ? `${passCount}/${total} pass` : '';
+  scenScore.className = cls;
 }
 
 function loadScenario(idx) {
