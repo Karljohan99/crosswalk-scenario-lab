@@ -146,6 +146,18 @@ aside {
   background: var(--bg);
   padding: 10px 12px 40px;
 }
+#leftBar {
+  width: 300px;
+  border-left: none;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+  padding-bottom: 10px;
+}
+#leftBar h2 { font-size: 14px; font-weight: 650; margin: 0 0 4px; flex: none; }
+#leftBar #scenList { flex: 1; overflow-y: auto; min-height: 0; margin: 0 -2px; padding: 0 2px; }
+#leftBar .scen-actions, #leftBar .hint { flex: none; }
 details { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 details > summary {
   cursor: pointer;
@@ -211,10 +223,7 @@ table.vars .desc { color: var(--muted); font-size: 11.5px; }
 #ruleMsg.err { color: var(--bad); }
 #ruleMsg.warn { color: var(--ink2); }
 .scen-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
+  padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 7px;
   margin: 5px 0;
@@ -222,6 +231,8 @@ table.vars .desc { color: var(--muted); font-size: 11.5px; }
   background: var(--panel);
 }
 .scen-row.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.scen-top { display: flex; align-items: center; gap: 6px; }
+.scen-status { display: flex; align-items: center; gap: 6px; margin: 5px 0 0 22px; }
 .scen-row .mark { font-weight: 700; width: 16px; text-align: center; flex: none; }
 .scen-row .mark.pass { color: var(--good); }
 .scen-row .mark.fail { color: var(--bad); }

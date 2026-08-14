@@ -17,6 +17,19 @@
 </header>
 
 <main>
+  <aside id="leftBar">
+    <h2>Scenarios</h2>
+    <div id="scenList"></div>
+    <div class="scen-actions">
+      <input type="text" id="scenName" placeholder="scenario name">
+      <button class="pill blocked" id="scenExpected" title="Expected outcome — click to toggle">expect BLOCKED</button>
+    </div>
+    <div class="scen-actions">
+      <button class="primary" id="scenSave">Save current scene</button>
+    </div>
+    <div class="hint">Click a scenario to load it. Click its expected pill to toggle the expected outcome. ⟳ overwrites a scenario with the current scene.</div>
+  </aside>
+
   <div id="canvasWrap">
     <canvas id="canvas"></canvas>
     <div id="verdict" class="clear">NOT BLOCKED</div>
@@ -48,19 +61,6 @@
         <div class="hint">Must <code>return True</code> (blocked) or <code>False</code>. Supports: if/elif/else, assignments, and/or/not, chained comparisons, <code>is None</code>, abs/min/max/round, math.*</div>
         <textarea id="ruleCode" spellcheck="false"></textarea>
         <div id="ruleMsg"></div>
-      </div>
-    </details>
-
-    <details open>
-      <summary>Scenarios</summary>
-      <div class="body">
-        <div id="scenList"></div>
-        <div class="scen-actions">
-          <input type="text" id="scenName" placeholder="scenario name">
-          <button class="pill blocked" id="scenExpected" title="Expected outcome — click to toggle">expect BLOCKED</button>
-          <button class="primary" id="scenSave">Save current</button>
-        </div>
-        <div class="hint">Click a row to load it. Click the expected pill on a row to toggle its expected outcome. ⟳ overwrites a scenario with the current scene.</div>
       </div>
     </details>
 

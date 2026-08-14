@@ -270,35 +270,26 @@ function renderScenarios() {
     row.className = 'scen-row' + (idx === selectedScenario ? ' selected' : '');
     row.addEventListener('click', () => loadScenario(idx));
 
+    const top = document.createElement('div');
+    top.className = 'scen-top';
+    row.appendChild(top);
+
     const mark = document.createElement('span');
     mark.className = 'mark ' + (pass ? 'pass' : 'fail');
     mark.textContent = pass ? '✓' : '✗';
-    row.appendChild(mark);
+    top.appendChild(mark);
 
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = s.name;
     name.title = s.name;
-    row.appendChild(name);
-
-    const exp = document.createElement('span');
-    exp.className = 'pill ' + (s.expected ? 'blocked' : 'clear');
-    exp.textContent = 'exp ' + (s.expected ? 'BLOCK' : 'CLEAR');
-    exp.title = 'Expected outcome — click to toggle';
-    exp.addEventListener('click', e => { e.stopPropagation(); s.expected = !s.expected; update(); });
-    row.appendChild(exp);
-
-    const act = document.createElement('span');
-    act.className = 'pill ' + (res.error ? 'err' : res.result ? 'blocked' : 'clear');
-    act.textContent = res.error ? 'ERR' : res.result ? 'got BLOCK' : 'got CLEAR';
-    if (res.error) act.title = res.error;
-    row.appendChild(act);
+    top.appendChild(name);
 
     const upd = document.createElement('button');
     upd.textContent = '⟳';
     upd.title = 'Overwrite this scenario with the current scene';
     upd.addEventListener('click', e => { e.stopPropagation(); s.params = { ...params }; update(); });
-    row.appendChild(upd);
+    top.appendChild(upd);
 
     const del = document.createElement('button');
     del.textContent = '✕';
@@ -310,7 +301,24 @@ function renderScenarios() {
       else if (selectedScenario > idx) selectedScenario--;
       update();
     });
-    row.appendChild(del);
+    top.appendChild(del);
+
+    const status = document.createElement('div');
+    status.className = 'scen-status';
+    row.appendChild(status);
+
+    const exp = document.createElement('span');
+    exp.className = 'pill ' + (s.expected ? 'blocked' : 'clear');
+    exp.textContent = 'exp ' + (s.expected ? 'BLOCK' : 'CLEAR');
+    exp.title = 'Expected outcome — click to toggle';
+    exp.addEventListener('click', e => { e.stopPropagation(); s.expected = !s.expected; update(); });
+    status.appendChild(exp);
+
+    const act = document.createElement('span');
+    act.className = 'pill ' + (res.error ? 'err' : res.result ? 'blocked' : 'clear');
+    act.textContent = res.error ? 'ERR' : res.result ? 'got BLOCK' : 'got CLEAR';
+    if (res.error) act.title = res.error;
+    status.appendChild(act);
 
     host.appendChild(row);
   });
