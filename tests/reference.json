@@ -19,8 +19,8 @@
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 6.6,
-   "distance_to_crosswalk": 0.6,
-   "on_crosswalk": false,
+   "distance_to_crosswalk": 0.0,
+   "on_crosswalk": true,
    "prediction_hits_crosswalk": true,
    "prediction_length": 4.199999999999999
   }
@@ -41,12 +41,12 @@
   },
   "expected": {
    "approach_angle": 13.518031015152715,
-   "trajectory_approach_angle": 13.518031015152696,
+   "trajectory_approach_angle": 13.518031015152715,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 165.6225322921506,
    "distance_to_path": 6.332954733443269,
-   "distance_to_crosswalk": 0.3364985017707339,
-   "on_crosswalk": false,
+   "distance_to_crosswalk": 0.0,
+   "on_crosswalk": true,
    "prediction_hits_crosswalk": true,
    "prediction_length": 4.5
   }
@@ -71,7 +71,7 @@
    "crosswalk_angle": 60.000000000000014,
    "heading_to_crosswalk_angle": 165.0,
    "distance_to_path": 7.6,
-   "distance_to_crosswalk": 3.028203230275508,
+   "distance_to_crosswalk": 1.5126587736527406,
    "on_crosswalk": false,
    "prediction_hits_crosswalk": true,
    "prediction_length": 4.199999999999999
@@ -97,7 +97,7 @@
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 61.566201561774086,
    "distance_to_path": 8.894809683734,
-   "distance_to_crosswalk": 2.883434158800351,
+   "distance_to_crosswalk": 1.216202693999731,
    "on_crosswalk": false,
    "prediction_hits_crosswalk": false,
    "prediction_length": 7.0
@@ -149,8 +149,8 @@
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 6.6,
-   "distance_to_crosswalk": 0.6,
-   "on_crosswalk": false,
+   "distance_to_crosswalk": 0.0,
+   "on_crosswalk": true,
    "prediction_hits_crosswalk": false,
    "prediction_length": 0.0
   }

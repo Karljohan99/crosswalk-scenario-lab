@@ -12,6 +12,7 @@
 const PED_RADIUS = 0.4;   // pedestrian footprint radius = dimensions/2 (0.8 m square-ish person)
 const VEH_LENGTH = 4.5;   // other-vehicle footprint (m)
 const VEH_WIDTH = 1.9;
+const LANE_WIDTH = 3.5;   // ego path is the right-lane center; road center is half a lane to its left
 const PATH_LENGTH = 100;  // local path length, m
 const PATH_STEP = 0.5;    // path sampling step, m
 
@@ -192,7 +193,10 @@ function computeScene(p) {
 
   const cwPose = pathPose(p.curvature, p.cwDist);
   const axisH = cwPose.h + Math.PI / 2 + rad(p.cwAngleDeg);   // crossing direction
-  const cwPoly = ensureCCW(rectPoly(cwPose, axisH, p.cwLen, p.cwWid));
+  // crosswalk is centered on the road (half a lane left of the ego path)
+  const cwCenter = { x: cwPose.x - Math.sin(cwPose.h) * LANE_WIDTH / 2,
+                     y: cwPose.y + Math.cos(cwPose.h) * LANE_WIDTH / 2 };
+  const cwPoly = ensureCCW(rectPoly(cwCenter, axisH, p.cwLen, p.cwWid));
 
   const ped = { x: p.pedX, y: p.pedY };
   const pedH = rad(p.pedHeadingDeg);
@@ -258,7 +262,7 @@ function computeScene(p) {
       is_pedestrian: true,
     },
     vehValues,
-    draw: { pathPts, cwPose, axisH, cwPoly, ped, pedH, np, towardPathH,
+    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, ped, pedH, np, towardPathH,
             predSeg: pred.predSeg, buffer: pred.buffer, clip: pred.clip,
             entry: pred.entry, entryNp: pred.entryNp, entryTowardPathH: pred.entryTowardPathH,
             veh },

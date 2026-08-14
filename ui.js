@@ -653,7 +653,7 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
   const d = scene.draw;
-  const LANE_W = 3.5;  // ego path = right lane center; road spans -LANE_W/2 .. +1.5*LANE_W around it
+  const LANE_W = LANE_WIDTH;  // ego path = right lane center; road spans -LANE_W/2 .. +1.5*LANE_W around it
 
   // grid (10 m)
   ctx.strokeStyle = cssVar('--grid');
@@ -706,7 +706,7 @@ function draw() {
   ctx.stroke();
 
   // crosswalk zebra
-  const cs = w2s(d.cwPose);
+  const cs = w2s(d.cwCenter);
   ctx.save();
   ctx.translate(cs.x, cs.y);
   ctx.rotate(-d.axisH);
@@ -818,9 +818,9 @@ function draw() {
     const col = cssVar('--angle-cw');
     let axisDir = d.axisH;
     if (angDiffDeg(axisDir, d.cwPose.h) > 90) axisDir += Math.PI;  // pick the axis end forming the folded 0-90 angle
-    drawRay(d.cwPose, d.cwPose.h, params.cwWid / 2 + 4, col, true);
-    drawRay(d.cwPose, axisDir, params.cwLen / 2 + 2, col, true);
-    drawAngleArc(d.cwPose, d.cwPose.h, axisDir, params.cwWid / 2 + 2.5,
+    drawRay(d.cwCenter, d.cwPose.h, params.cwWid / 2 + 4, col, true);
+    drawRay(d.cwCenter, axisDir, params.cwLen / 2 + 2, col, true);
+    drawAngleArc(d.cwCenter, d.cwPose.h, axisDir, params.cwWid / 2 + 2.5,
       `${varNames.crosswalk_angle}=${scene.values.crosswalk_angle.toFixed(0)}°`, col);
   }
 

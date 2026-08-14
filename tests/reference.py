@@ -17,6 +17,7 @@ from autoware_mini.geometry import get_angle_between_two_headings
 PED_RADIUS = 0.4
 PATH_LENGTH = 100
 PATH_STEP = 0.5
+LANE_WIDTH = 3.5  # crosswalk is centered on the road, half a lane left of the ego path
 
 
 def path_pose(k, s):
@@ -48,6 +49,8 @@ def compute(p):
 
     cwx, cwy, cwh = path_pose(p['curvature'], p['cwDist'])
     axis_h = cwh + math.pi / 2 + math.radians(p['cwAngleDeg'])
+    cwx -= math.sin(cwh) * LANE_WIDTH / 2
+    cwy += math.cos(cwh) * LANE_WIDTH / 2
     cw_poly = rect_poly(cwx, cwy, axis_h, p['cwLen'], p['cwWid'])
 
     ped = shapely.Point(p['pedX'], p['pedY'])
