@@ -746,16 +746,18 @@ function draw() {
     ctx.roundRect(-VEH_LENGTH / 2 * view.scale, -VEH_WIDTH / 2 * view.scale, VEH_LENGTH * view.scale, VEH_WIDTH * view.scale, 3);
     ctx.fill();
     ctx.restore();
+    const vHandle = vehHandlePos();
+    const vFront = { x: d.veh.center.x + Math.cos(d.veh.heading) * VEH_LENGTH / 2,
+                     y: d.veh.center.y + Math.sin(d.veh.heading) * VEH_LENGTH / 2 };
+    ctx.strokeStyle = vcol;
+    ctx.lineWidth = 2;
+    linePath([vFront, vHandle]);
+    ctx.stroke();
     ctx.fillStyle = cssVar('--surface');
     ctx.font = `${Math.max(9, Math.min(13, view.scale * 1.1))}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('VEH', vs.x, vs.y);
-    const vHandle = vehHandlePos();
-    ctx.strokeStyle = vcol;
-    ctx.lineWidth = 2;
-    linePath([d.veh.center, vHandle]);
-    ctx.stroke();
     drawArrowHead(vHandle, d.veh.heading, 10, vcol);
     const vhS = w2s(vHandle);
     ctx.beginPath();
