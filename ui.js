@@ -172,9 +172,35 @@ const ANGLE_VIZ = [
 ];
 const angleViz = Object.fromEntries(ANGLE_VIZ.map(a => [a.id, true]));
 const angleLabelEls = {};
+let angleVizObject = 'ped';   // whose angles the overlays show: 'ped' | 'veh'
+let vehRadioEl = null;
 
 function buildAngleToggles() {
   const host = document.getElementById('angleToggles');
+
+  const objRow = document.createElement('div');
+  objRow.className = 'tog';
+  const caption = document.createElement('span');
+  caption.textContent = 'show for:';
+  caption.style.font = 'inherit';
+  objRow.appendChild(caption);
+  for (const [value, text] of [['ped', 'pedestrian'], ['veh', 'other vehicle']]) {
+    const lab = document.createElement('label');
+    lab.className = 'tog';
+    lab.style.margin = '0';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'angleVizObject';
+    radio.checked = angleVizObject === value;
+    radio.addEventListener('change', () => { angleVizObject = value; draw(); });
+    if (value === 'veh') vehRadioEl = radio;
+    const span = document.createElement('span');
+    span.textContent = text;
+    lab.appendChild(radio);
+    lab.appendChild(span);
+    objRow.appendChild(lab);
+  }
+  host.appendChild(objRow);
   for (const a of ANGLE_VIZ) {
     const row = document.createElement('label');
     row.className = 'tog';
@@ -769,6 +795,16 @@ function draw() {
     ctx.stroke();
   }
 
+  // which object's angles are visualized (falls back to the ped when the vehicle is off)
+  const useVeh = angleVizObject === 'veh' && d.veh;
+  const subj = useVeh
+    ? { center: d.veh.center, heading: d.veh.heading, np: d.veh.np, towardPathH: d.veh.towardPathH,
+        entry: d.veh.entry, entryNp: d.veh.entryNp, entryTowardPathH: d.veh.entryTowardPathH,
+        clip: d.veh.clip, values: scene.vehValues }
+    : { center: d.ped, heading: d.pedH, np: d.np, towardPathH: d.towardPathH,
+        entry: d.entry, entryNp: d.entryNp, entryTowardPathH: d.entryTowardPathH,
+        clip: d.clip, values: scene.values };
+
   // crosswalk angle: road direction vs crossing axis at the crosswalk center
   if (angleViz.crosswalk_angle) {
     const col = cssVar('--angle-cw');
@@ -780,12 +816,12 @@ function draw() {
       `${varNames.crosswalk_angle}=${scene.values.crosswalk_angle.toFixed(0)}°`, col);
   }
 
-  // heading vs crossing axis at the pedestrian
+  // heading vs crossing axis at the subject object
   if (angleViz.heading_to_crosswalk_angle) {
     const col = cssVar('--angle-hcw');
-    drawRay(d.ped, d.axisH, 4.2, col, true);
-    drawAngleArc(d.ped, d.pedH, d.axisH, 3.4,
-      `${varNames.heading_to_crosswalk_angle}=${scene.values.heading_to_crosswalk_angle.toFixed(0)}°`, col);
+    drawRay(subj.center, d.axisH, 4.2, col, true);
+    drawAngleArc(subj.center, subj.heading, d.axisH, 3.4,
+      `${varNames.heading_to_crosswalk_angle}=${subj.values.heading_to_crosswalk_angle.toFixed(0)}°`, col);
   }
 
   // nearest-point ray + approach angle arc
@@ -794,16 +830,16 @@ function draw() {
     ctx.setLineDash([4, 4]);
     ctx.strokeStyle = muted;
     ctx.lineWidth = 1.2;
-    linePath([d.ped, d.np]);
+    linePath([subj.center, subj.np]);
     ctx.stroke();
     ctx.setLineDash([]);
-    const npS = w2s(d.np);
+    const npS = w2s(subj.np);
     ctx.beginPath();
     ctx.arc(npS.x, npS.y, 3, 0, 2 * Math.PI);
     ctx.fillStyle = muted;
     ctx.fill();
-    drawAngleArc(d.ped, d.pedH, d.towardPathH, 2.2,
-      `${varNames.approach_angle}=${scene.values.approach_angle.toFixed(0)}°`, cssVar('--ink2'));
+    drawAngleArc(subj.center, subj.heading, subj.towardPathH, 2.2,
+      `${varNames.approach_angle}=${subj.values.approach_angle.toFixed(0)}°`, cssVar('--ink2'));
   }
 
   // prediction
@@ -818,44 +854,46 @@ function draw() {
     drawArrowHead(d.predSeg[1], d.pedH, 8, cssVar('--ped'));
   }
 
-  // trajectory approach angle at the crosswalk entry point: the angle between the
-  // trajectory direction and the ray from the entry point to the nearest path point
-  if (d.entry) {
+  // trajectory approach angle at the subject's crosswalk entry point: the angle between
+  // the trajectory direction and the ray from the entry point to the nearest path point
+  if (angleViz.trajectory_approach_angle && subj.entry) {
     const col = cssVar('--cw-hit');
     // prediction ∩ crosswalk overlap area — what makes this crosswalk "hit"
-    if (angleViz.trajectory_approach_angle && d.clip && d.clip.length >= 3) {
+    if (subj.clip && subj.clip.length >= 3) {
       ctx.save();
       ctx.globalAlpha = 0.3;
-      polyPath(d.clip);
+      polyPath(subj.clip);
       ctx.fillStyle = col;
       ctx.fill();
       ctx.restore();
     }
-    if (angleViz.trajectory_approach_angle) {
-      // leg 1: trajectory direction at the entry point
-      const ahead = { x: d.entry.x + 2.4 * Math.cos(d.pedH), y: d.entry.y + 2.4 * Math.sin(d.pedH) };
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1.5;
-      linePath([d.entry, ahead]);
-      ctx.stroke();
-      drawArrowHead(ahead, d.pedH, 7, col);
-      // leg 2: dashed ray to the nearest point on the ego path
-      drawRay(d.entry, d.entryTowardPathH, Math.hypot(d.entryNp.x - d.entry.x, d.entryNp.y - d.entry.y), col, true);
-      const enS = w2s(d.entryNp);
-      ctx.beginPath();
-      ctx.arc(enS.x, enS.y, 3, 0, 2 * Math.PI);
-      ctx.fillStyle = col;
-      ctx.fill();
-      // push the label further out when the entry point sits close to the ped's own arc
-      const nearPed = Math.hypot(d.entry.x - d.ped.x, d.entry.y - d.ped.y) < 3.5;
-      drawAngleArc(d.entry, d.pedH, d.entryTowardPathH, 1.4,
-        `${varNames.trajectory_approach_angle}=${scene.values.trajectory_approach_angle.toFixed(0)}°`, col,
-        nearPed ? 2.8 : 1.0);
-    }
+    // leg 1: trajectory direction at the entry point
+    const ahead = { x: subj.entry.x + 2.4 * Math.cos(subj.heading), y: subj.entry.y + 2.4 * Math.sin(subj.heading) };
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    linePath([subj.entry, ahead]);
+    ctx.stroke();
+    drawArrowHead(ahead, subj.heading, 7, col);
+    // leg 2: dashed ray to the nearest point on the ego path
+    drawRay(subj.entry, subj.entryTowardPathH, Math.hypot(subj.entryNp.x - subj.entry.x, subj.entryNp.y - subj.entry.y), col, true);
+    const enS = w2s(subj.entryNp);
+    ctx.beginPath();
+    ctx.arc(enS.x, enS.y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = col;
+    ctx.fill();
+    // push the label further out when the entry point sits close to the subject's own arc
+    const nearSubj = Math.hypot(subj.entry.x - subj.center.x, subj.entry.y - subj.center.y) < 3.5;
+    drawAngleArc(subj.entry, subj.heading, subj.entryTowardPathH, 1.4,
+      `${varNames.trajectory_approach_angle}=${subj.values.trajectory_approach_angle.toFixed(0)}°`, col,
+      nearSubj ? 2.8 : 1.0);
+  }
+
+  // pedestrian's entry point marker (the vehicle's is drawn in its own section)
+  if (d.entry) {
     const eS = w2s(d.entry);
     ctx.beginPath();
     ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = col;
+    ctx.fillStyle = cssVar('--cw-hit');
     ctx.fill();
     ctx.strokeStyle = cssVar('--surface');
     ctx.lineWidth = 1.5;
@@ -985,6 +1023,8 @@ function update() {
     el.title = scene.vehValues ? 'pedestrian · vehicle' : '';
   }
   for (const a of ANGLE_VIZ) angleLabelEls[a.id].textContent = varNames[a.id];
+  vehRadioEl.disabled = !params.vehEnabled;
+  vehRadioEl.parentElement.style.opacity = params.vehEnabled ? '' : '0.45';
 
   const res = evalRuleAll(scene);
   ruleResult = res.error ? null : res.result;
