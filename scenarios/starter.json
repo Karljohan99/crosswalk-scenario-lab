@@ -1,6 +1,10 @@
 {
   "version": 1,
   "rule": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False",
+  "rules": [
+    { "name": "production rule",
+      "code": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False" }
+  ],
   "variable_names": {
     "approach_angle": "approach_angle",
     "trajectory_approach_angle": "trajectory_approach_angle",

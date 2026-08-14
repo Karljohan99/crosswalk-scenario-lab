@@ -59,6 +59,8 @@ const STARTER_SCENARIOS = [
 let params = { ...DEFAULT_PARAMS };
 let varNames = Object.fromEntries(QUANTITIES.map(q => [q.id, q.id]));
 let scenarios = STARTER_SCENARIOS.map(s => ({ name: s.name, expected: s.expected, params: { ...s.params } }));
+let rules = [{ name: 'production rule', code: DEFAULT_RULE }];
+let selectedRule = 0;  // the editor starts with the production rule loaded
 let selectedScenario = -1;
 let workingParams = null;  // snapshot of the unsaved working scene while a scenario is loaded
 let ruleAst = null;
@@ -277,9 +279,10 @@ function renderScenarios() {
     host.appendChild(back);
   }
 
+  const scenarioValues = scenarios.map(s => computeScene(s.params).values);
   let passCount = 0, total = scenarios.length;
   scenarios.forEach((s, idx) => {
-    const values = computeScene(s.params).values;
+    const values = scenarioValues[idx];
     const res = evalRule(values);
     const pass = !res.error && res.result === s.expected;
     if (pass) passCount++;
@@ -348,6 +351,80 @@ function renderScenarios() {
   const scenScore = document.getElementById('scenScore');
   scenScore.textContent = total ? `${passCount}/${total} pass` : '';
   scenScore.className = cls;
+
+  renderRules(scenarioValues);
+}
+
+function renderRules(scenarioValues) {
+  const host = document.getElementById('ruleList');
+  host.innerHTML = '';
+  rules.forEach((r, idx) => {
+    let score = null, err = null;
+    try {
+      const ast = pyParse(r.code);
+      score = 0;
+      scenarios.forEach((s, i) => {
+        try { if (runRule(ast, bindingsFor(scenarioValues[i])).result === s.expected) score++; }
+        catch (_) { /* runtime error on this scenario counts as a miss */ }
+      });
+    } catch (e) {
+      err = e instanceof PyError ? `line ${e.pyLine}: ${e.message}` : e.message;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'scen-row' + (idx === selectedRule ? ' selected' : '');
+    row.title = 'Load this rule into the editor';
+    row.addEventListener('click', () => loadRule(idx));
+
+    const top = document.createElement('div');
+    top.className = 'scen-top';
+    row.appendChild(top);
+
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = r.name;
+    name.title = r.name;
+    top.appendChild(name);
+
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'rule-score ' + (err ? 'err' : scenarios.length && score === scenarios.length ? 'all-pass' : 'has-fail');
+    scoreEl.textContent = err ? 'ERR' : `${score}/${scenarios.length}`;
+    if (err) scoreEl.title = err;
+    top.appendChild(scoreEl);
+
+    const upd = document.createElement('button');
+    upd.textContent = '⟳';
+    upd.title = 'Overwrite this rule with the editor contents';
+    upd.addEventListener('click', e => {
+      e.stopPropagation();
+      r.code = document.getElementById('ruleCode').value;
+      selectedRule = idx;
+      update();
+    });
+    top.appendChild(upd);
+
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.title = 'Delete rule';
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      rules.splice(idx, 1);
+      if (selectedRule === idx) selectedRule = -1;
+      else if (selectedRule > idx) selectedRule--;
+      update();
+    });
+    top.appendChild(del);
+
+    host.appendChild(row);
+  });
+}
+
+function loadRule(idx) {
+  selectedRule = idx;
+  document.getElementById('ruleCode').value = rules[idx].code;
+  document.getElementById('ruleName').value = rules[idx].name;
+  compileRule();
+  update();
 }
 
 function loadScenario(idx) {
@@ -366,6 +443,7 @@ function exportJson() {
     version: 1,
     rule: document.getElementById('ruleCode').value,
     variable_names: { ...varNames },
+    rules: rules.map(r => ({ name: r.name, code: r.code })),
     scenarios: scenarios.map(s => ({ name: s.name, expected: s.expected, params: { ...s.params } })),
   }, null, 2);
 }
@@ -386,6 +464,10 @@ function importJson(text) {
       params: { ...DEFAULT_PARAMS, ...s.params },
     }));
   }
+  if (Array.isArray(data.rules)) {
+    rules = data.rules.map(r => ({ name: String(r.name || 'unnamed'), code: String(r.code || '') }));
+  }
+  selectedRule = -1;
   selectedScenario = -1;
   workingParams = null;
   syncVarInputs();
@@ -820,7 +902,14 @@ buildVarRows();
 document.getElementById('ruleCode').value = DEFAULT_RULE;
 compileRule();
 
-document.getElementById('ruleCode').addEventListener('input', () => { compileRule(); update(); });
+document.getElementById('ruleCode').addEventListener('input', () => { selectedRule = -1; compileRule(); update(); });
+
+document.getElementById('ruleSave').addEventListener('click', () => {
+  const name = document.getElementById('ruleName').value.trim() || `rule ${rules.length + 1}`;
+  rules.push({ name, code: document.getElementById('ruleCode').value });
+  selectedRule = rules.length - 1;
+  update();
+});
 document.getElementById('ruleCode').addEventListener('keydown', e => {
   if (e.key === 'Tab') {
     e.preventDefault();

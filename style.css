@@ -160,7 +160,13 @@ aside {
 #scenScore.all-pass { color: var(--good); }
 #scenScore.has-fail { color: var(--bad); }
 #leftBar #scenList { flex: 1; overflow-y: auto; min-height: 0; margin: 0 -2px; padding: 0 2px; }
+#leftBar #ruleList { flex: none; max-height: 30%; overflow-y: auto; margin: 0 -2px; padding: 0 2px; }
+#leftBar h2.sect { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
 #leftBar .scen-actions, #leftBar .hint { flex: none; }
+.rule-score { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 12.5px; flex: none; }
+.rule-score.all-pass { color: var(--good); }
+.rule-score.has-fail { color: var(--bad); }
+.rule-score.err { color: var(--warn); }
 details { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 details > summary {
   cursor: pointer;

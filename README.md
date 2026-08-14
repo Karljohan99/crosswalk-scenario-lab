@@ -42,6 +42,9 @@ after changing the scene model.
   it — no server, no Pyodide.
 - Lets you save **scenarios** with an expected outcome (blocked / clear) and
   shows how many scenarios the current rule decides correctly.
+- Lets you save multiple **rules** and compare them: each saved rule shows how
+  many scenarios it decides correctly, so candidate rules can be ranked at a
+  glance.
 - **Export / Import** serializes scenarios + rule + variable names as JSON
   (`scenarios/starter.json` is such a file — paste it into the import box).
 
