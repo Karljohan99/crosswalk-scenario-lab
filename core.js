@@ -10,6 +10,8 @@
  */
 
 const PED_RADIUS = 0.4;   // pedestrian footprint radius = dimensions/2 (0.8 m square-ish person)
+const VEH_LENGTH = 4.5;   // other-vehicle footprint (m)
+const VEH_WIDTH = 1.9;
 const PATH_LENGTH = 100;  // local path length, m
 const PATH_STEP = 0.5;    // path sampling step, m
 
@@ -139,6 +141,51 @@ function distPointToConvexPoly(p, poly) {
   return inside ? 0 : Math.sqrt(minD2);
 }
 
+// distance from a convex polygon to a polyline; 0 if they touch
+// (min distance is attained at a vertex of one of the two)
+function distPolyToPolyline(poly, pts) {
+  let min = Infinity;
+  for (const c of poly) min = Math.min(min, nearestOnPolyline(pts, c).dist);
+  for (const p of pts) {
+    min = Math.min(min, distPointToConvexPoly(p, poly));
+    if (min === 0) break;
+  }
+  return min;
+}
+
+// distance between two convex polygons; 0 if they intersect
+function distPolyToPoly(a, b) {
+  const clip = clipConvex(a, b);
+  if (clip.length >= 3 && Math.abs(polyArea(clip)) > 1e-12) return 0;
+  let min = Infinity;
+  for (const c of a) min = Math.min(min, distPointToConvexPoly(c, b));
+  for (const c of b) min = Math.min(min, distPointToConvexPoly(c, a));
+  return min;
+}
+
+// naive straight prediction from an object's front point, buffered, clipped
+// against the crosswalk; entry point = nearest point of the overlap along the
+// trajectory (collision_checker.py:806-817)
+function computePrediction(pathPts, cwPoly, p0, heading, predLen, halfWidth) {
+  const out = { predSeg: null, buffer: null, clip: null, entry: null, entryNp: null, entryTowardPathH: null, hits: false, trajAngle: null };
+  if (predLen <= 1e-6) return out;
+  const dir = { x: Math.cos(heading), y: Math.sin(heading) };
+  const p1 = { x: p0.x + dir.x * predLen, y: p0.y + dir.y * predLen };
+  out.predSeg = [p0, p1];
+  out.buffer = segBufferPoly(p0, p1, halfWidth);
+  out.clip = clipConvex(out.buffer, cwPoly);
+  if (out.clip.length >= 3 && Math.abs(polyArea(out.clip)) > 1e-9) {
+    out.hits = true;
+    let minT = Infinity;
+    for (const v of out.clip) minT = Math.min(minT, projectOnSegment(p0, p1, v).t);
+    out.entry = { x: p0.x + dir.x * minT, y: p0.y + dir.y * minT };
+    out.entryNp = nearestOnPolyline(pathPts, out.entry);
+    out.entryTowardPathH = Math.atan2(out.entryNp.y - out.entry.y, out.entryNp.x - out.entry.x);
+    out.trajAngle = angDiffDeg(heading, out.entryTowardPathH);  // trajectory heading is constant (straight prediction)
+  }
+  return out;
+}
+
 /* compute all quantities + drawing geometry for a scene parameter set */
 function computeScene(p) {
   const pathPts = samplePath(p.curvature);
@@ -160,45 +207,61 @@ function computeScene(p) {
   const distToCrosswalk = Math.max(0, dCwCenter - PED_RADIUS);
 
   const predLen = p.speed * p.horizon;
-  let predSeg = null, buffer = null, clip = null, entry = null, entryNp = null;
-  let hitsCrosswalk = false, trajApproachAngle = null, entryTowardPathH = null;
-  if (predLen > 1e-6) {
-    const dir = { x: Math.cos(pedH), y: Math.sin(pedH) };
-    const p0 = { x: ped.x + dir.x * PED_RADIUS, y: ped.y + dir.y * PED_RADIUS };  // trajectory starts at object front
-    const p1 = { x: p0.x + dir.x * predLen, y: p0.y + dir.y * predLen };
-    predSeg = [p0, p1];
-    buffer = segBufferPoly(p0, p1, PED_RADIUS);
-    clip = clipConvex(buffer, cwPoly);
-    if (clip.length >= 3 && Math.abs(polyArea(clip)) > 1e-9) {
-      hitsCrosswalk = true;
-      let minT = Infinity;
-      for (const v of clip) minT = Math.min(minT, projectOnSegment(p0, p1, v).t);
-      entry = { x: p0.x + dir.x * minT, y: p0.y + dir.y * minT };
-      entryNp = nearestOnPolyline(pathPts, entry);
-      entryTowardPathH = Math.atan2(entryNp.y - entry.y, entryNp.x - entry.x);
-      trajApproachAngle = angDiffDeg(pedH, entryTowardPathH);  // trajectory heading == pedH (straight prediction)
-    }
-  }
+  const pedFront = { x: ped.x + Math.cos(pedH) * PED_RADIUS, y: ped.y + Math.sin(pedH) * PED_RADIUS };  // trajectory starts at object front
+  const pred = computePrediction(pathPts, cwPoly, pedFront, pedH, predLen, PED_RADIUS);
 
   let cwAngle = angDiffDeg(axisH, cwPose.h);
   if (cwAngle > 90) cwAngle = 180 - cwAngle;                   // axis is undirected vs road: fold to 0-90
-  const headingToCw = angDiffDeg(pedH, axisH);
+
+  // optional other vehicle, also with a naive straight prediction
+  let veh = null, vehValues = null;
+  if (p.vehEnabled) {
+    const c = { x: p.vehX, y: p.vehY };
+    const h = rad(p.vehHeadingDeg);
+    const poly = ensureCCW(rectPoly(c, h, VEH_LENGTH, VEH_WIDTH));
+    const vehNp = nearestOnPolyline(pathPts, c);
+    const vehTowardH = Math.atan2(vehNp.y - c.y, vehNp.x - c.x);
+    const vehPredLen = p.vehSpeed * p.horizon;
+    const front = { x: c.x + Math.cos(h) * VEH_LENGTH / 2, y: c.y + Math.sin(h) * VEH_LENGTH / 2 };
+    const vehPred = computePrediction(pathPts, cwPoly, front, h, vehPredLen, VEH_WIDTH / 2);
+    const dCw = distPolyToPoly(poly, cwPoly);
+    vehValues = {
+      approach_angle: angDiffDeg(h, vehTowardH),
+      trajectory_approach_angle: vehPred.trajAngle,
+      crosswalk_angle: cwAngle,
+      heading_to_crosswalk_angle: angDiffDeg(h, axisH),
+      distance_to_path: distPolyToPolyline(poly, pathPts),
+      distance_to_crosswalk: dCw,
+      on_crosswalk: dCw === 0,
+      prediction_hits_crosswalk: vehPred.hits,
+      prediction_length: vehPredLen,
+      speed: p.vehSpeed,
+      wide_safety_box_width: p.wideBox,
+      is_pedestrian: false,
+    };
+    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred };
+  }
 
   return {
     values: {
       approach_angle: approachAngle,
-      trajectory_approach_angle: trajApproachAngle,            // null (None) when prediction misses the crosswalk
+      trajectory_approach_angle: pred.trajAngle,               // null (None) when prediction misses the crosswalk
       crosswalk_angle: cwAngle,
-      heading_to_crosswalk_angle: headingToCw,
+      heading_to_crosswalk_angle: angDiffDeg(pedH, axisH),
       distance_to_path: distToPath,
       distance_to_crosswalk: distToCrosswalk,
       on_crosswalk: onCrosswalk,
-      prediction_hits_crosswalk: hitsCrosswalk,
+      prediction_hits_crosswalk: pred.hits,
       prediction_length: predLen,
       speed: p.speed,
       wide_safety_box_width: p.wideBox,
+      is_pedestrian: true,
     },
-    draw: { pathPts, cwPose, axisH, cwPoly, ped, pedH, np, towardPathH, predSeg, buffer, clip, entry, entryNp, entryTowardPathH },
+    vehValues,
+    draw: { pathPts, cwPose, axisH, cwPoly, ped, pedH, np, towardPathH,
+            predSeg: pred.predSeg, buffer: pred.buffer, clip: pred.clip,
+            entry: pred.entry, entryNp: pred.entryNp, entryTowardPathH: pred.entryTowardPathH,
+            veh },
   };
 }
 

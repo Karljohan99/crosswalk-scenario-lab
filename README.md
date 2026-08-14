@@ -34,8 +34,13 @@ after changing the scene model.
 ## What it does
 
 - Draws a 2D top-down scene: ego path (with configurable **road curvature**), a
-  **crosswalk** (position along the path, angle vs the road, dimensions), and a
-  **pedestrian** (position, heading, speed, prediction horizon).
+  **crosswalk** (position along the path, angle vs the road, dimensions), a
+  **pedestrian** (position, heading, speed, prediction horizon), and optionally
+  an **other vehicle** (4.5 × 1.9 m, own position/heading/speed) with the same
+  naive straight prediction. The rule runs once per object — like the real
+  checker, which iterates all predicted objects — and the crosswalk is blocked
+  if any object triggers; the `is_pedestrian` variable lets a rule distinguish
+  them.
 - Computes the same geometric quantities the real checker computes, live.
 - Lets you write the blocking decision as a **Python snippet** that must
   `return True` (blocked) or `False`. A built-in Python-subset interpreter runs

@@ -14,6 +14,7 @@ const QUANTITIES = [
   { id: 'prediction_length', desc: 'speed × horizon (m)' },
   { id: 'speed', desc: 'pedestrian speed (m/s)' },
   { id: 'wide_safety_box_width', desc: 'config param, default 3.1 m — departing peds within half this of the path still block' },
+  { id: 'is_pedestrian', desc: 'True for the pedestrian, False for the other vehicle — the rule runs once per object (bool)' },
 ];
 
 const DEFAULT_RULE = `# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)
@@ -37,6 +38,7 @@ return False`;
 const DEFAULT_PARAMS = {
   curvature: 0, cwDist: 30, cwAngleDeg: 0, cwLen: 12, cwWid: 4,
   pedX: 30, pedY: 7, pedHeadingDeg: -90, speed: 1.4, horizon: 3.0, wideBox: 3.1,
+  vehEnabled: false, vehX: 50, vehY: 1.75, vehHeadingDeg: 180, vehSpeed: 8,
 };
 
 const STARTER_SCENARIOS = [
@@ -54,6 +56,8 @@ const STARTER_SCENARIOS = [
     params: { ...DEFAULT_PARAMS, cwAngleDeg: 30, pedX: 26.5, pedY: 6.5, pedHeadingDeg: -60 } },
   { name: 'Loitering on crosswalk, walking along road', expected: true,
     params: { ...DEFAULT_PARAMS, pedX: 30, pedY: 1.5, pedHeadingDeg: 0, speed: 1.0 } },
+  { name: 'Vehicle driving through, ped on sidewalk', expected: false,
+    params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true } },
 ];
 
 let params = { ...DEFAULT_PARAMS };
@@ -85,6 +89,12 @@ const CONTROLS = [
   { key: 'pedHeadingDeg', label: 'heading (°)', min: -180, max: 180, step: 1, fmt: v => v.toFixed(0) },
   { key: 'speed', label: 'speed (m/s)', min: 0, max: 3, step: 0.1, fmt: v => v.toFixed(1) },
   { key: 'horizon', label: 'prediction horizon (s)', min: 0, max: 8, step: 0.5, fmt: v => v.toFixed(1) },
+  { section: 'Other vehicle (naive prediction)' },
+  { key: 'vehEnabled', label: 'enabled', checkbox: true },
+  { key: 'vehX', label: 'x (m)', number: true },
+  { key: 'vehY', label: 'y (m)', number: true },
+  { key: 'vehHeadingDeg', label: 'heading (°)', min: -180, max: 180, step: 1, fmt: v => v.toFixed(0) },
+  { key: 'vehSpeed', label: 'speed (m/s)', min: 0, max: 15, step: 0.5, fmt: v => v.toFixed(1) },
   { section: 'Checker params' },
   { key: 'wideBox', label: 'wide_safety_box_width (m)', min: 0, max: 8, step: 0.1, fmt: v => v.toFixed(1) },
 ];
@@ -107,7 +117,14 @@ function buildControls() {
     const label = document.createElement('label');
     label.textContent = c.label;
     row.appendChild(label);
-    if (c.number) {
+    if (c.checkbox) {
+      const inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.style.justifySelf = 'start';
+      inp.addEventListener('change', () => { params[c.key] = inp.checked; update(); });
+      row.appendChild(inp);
+      controlEls[c.key] = { set: v => { inp.checked = !!v; } };
+    } else if (c.number) {
       const inp = document.createElement('input');
       inp.type = 'number';
       inp.step = '0.1';
@@ -248,14 +265,25 @@ function bindingsFor(values) {
   return b;
 }
 
-function evalRule(values) {
-  if (!ruleAst) return { error: ruleError || 'no rule' };
-  try {
-    return runRule(ruleAst, bindingsFor(values));
-  } catch (e) {
-    if (e instanceof PyError) return { error: e.pyLine ? `line ${e.pyLine}: ${e.message}` : e.message };
-    return { error: e.message };
+function objectValuesList(sc) {
+  return sc.vehValues ? [sc.values, sc.vehValues] : [sc.values];
+}
+
+// run the rule once per object; the crosswalk is blocked if any object triggers
+function evalRuleAll(sc, ast = ruleAst) {
+  if (!ast) return { error: ruleError || 'no rule' };
+  let blocked = false, warning = null;
+  for (const values of objectValuesList(sc)) {
+    try {
+      const r = runRule(ast, bindingsFor(values));
+      blocked = blocked || r.result;
+      warning = warning || r.warning;
+    } catch (e) {
+      if (e instanceof PyError) return { error: e.pyLine ? `line ${e.pyLine}: ${e.message}` : e.message };
+      return { error: e.message };
+    }
   }
+  return { result: blocked, warning };
 }
 
 /* ---------------- scenarios ---------------- */
@@ -279,11 +307,10 @@ function renderScenarios() {
     host.appendChild(back);
   }
 
-  const scenarioValues = scenarios.map(s => computeScene(s.params).values);
+  const scenarioScenes = scenarios.map(s => computeScene(s.params));
   let passCount = 0, total = scenarios.length;
   scenarios.forEach((s, idx) => {
-    const values = scenarioValues[idx];
-    const res = evalRule(values);
+    const res = evalRuleAll(scenarioScenes[idx]);
     const pass = !res.error && res.result === s.expected;
     if (pass) passCount++;
 
@@ -352,10 +379,10 @@ function renderScenarios() {
   scenScore.textContent = total ? `${passCount}/${total} pass` : '';
   scenScore.className = cls;
 
-  renderRules(scenarioValues);
+  renderRules(scenarioScenes);
 }
 
-function renderRules(scenarioValues) {
+function renderRules(scenarioScenes) {
   const host = document.getElementById('ruleList');
   host.innerHTML = '';
   rules.forEach((r, idx) => {
@@ -364,8 +391,8 @@ function renderRules(scenarioValues) {
       const ast = pyParse(r.code);
       score = 0;
       scenarios.forEach((s, i) => {
-        try { if (runRule(ast, bindingsFor(scenarioValues[i])).result === s.expected) score++; }
-        catch (_) { /* runtime error on this scenario counts as a miss */ }
+        const res = evalRuleAll(scenarioScenes[i], ast);
+        if (!res.error && res.result === s.expected) score++;  // errors count as a miss
       });
     } catch (e) {
       err = e instanceof PyError ? `line ${e.pyLine}: ${e.message}` : e.message;
@@ -504,6 +531,10 @@ function fitView() {
   for (const p of d.cwPoly) { xs.push(p.x); ys.push(p.y); }
   xs.push(d.ped.x - 5, d.ped.x + 5);
   ys.push(d.ped.y - 5, d.ped.y + 5);
+  if (d.veh) {
+    xs.push(d.veh.center.x - 6, d.veh.center.x + 6);
+    ys.push(d.veh.center.y - 6, d.veh.center.y + 6);
+  }
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   view.cx = (minX + maxX) / 2;
@@ -683,6 +714,59 @@ function draw() {
   const tip = d.pathPts[d.pathPts.length - 1];
   drawArrowHead(tip, tip.h, 9, cssVar('--road-edge'));
 
+  // other vehicle + its naive prediction
+  if (d.veh) {
+    const vcol = cssVar('--veh');
+    if (d.veh.buffer) {
+      polyPath(d.veh.buffer);
+      ctx.fillStyle = cssVar('--veh-pred');
+      ctx.fill();
+      ctx.strokeStyle = vcol;
+      ctx.lineWidth = 1.8;
+      linePath(d.veh.predSeg);
+      ctx.stroke();
+      drawArrowHead(d.veh.predSeg[1], d.veh.heading, 8, vcol);
+    }
+    if (d.veh.entry) {
+      const eS = w2s(d.veh.entry);
+      ctx.beginPath();
+      ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = vcol;
+      ctx.fill();
+      ctx.strokeStyle = cssVar('--surface');
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    const vs = w2s(d.veh.center);
+    ctx.save();
+    ctx.translate(vs.x, vs.y);
+    ctx.rotate(-d.veh.heading);
+    ctx.fillStyle = vcol;
+    ctx.beginPath();
+    ctx.roundRect(-VEH_LENGTH / 2 * view.scale, -VEH_WIDTH / 2 * view.scale, VEH_LENGTH * view.scale, VEH_WIDTH * view.scale, 3);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = cssVar('--surface');
+    ctx.font = `${Math.max(9, Math.min(13, view.scale * 1.1))}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('VEH', vs.x, vs.y);
+    const vHandle = vehHandlePos();
+    ctx.strokeStyle = vcol;
+    ctx.lineWidth = 2;
+    linePath([d.veh.center, vHandle]);
+    ctx.stroke();
+    drawArrowHead(vHandle, d.veh.heading, 10, vcol);
+    const vhS = w2s(vHandle);
+    ctx.beginPath();
+    ctx.arc(vhS.x, vhS.y, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = cssVar('--surface');
+    ctx.strokeStyle = vcol;
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
+  }
+
   // crosswalk angle: road direction vs crossing axis at the crosswalk center
   if (angleViz.crosswalk_angle) {
     const col = cssVar('--angle-cw');
@@ -809,6 +893,14 @@ function headingHandlePos() {
   };
 }
 
+function vehHandlePos() {
+  const len = VEH_LENGTH / 2 + Math.max(1.2, 20 / view.scale);
+  return {
+    x: params.vehX + Math.cos(rad(params.vehHeadingDeg)) * len,
+    y: params.vehY + Math.sin(rad(params.vehHeadingDeg)) * len,
+  };
+}
+
 /* canvas interaction */
 let drag = null;
 
@@ -817,8 +909,11 @@ canvas.addEventListener('mousedown', e => {
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
   const pedS = w2s({ x: params.pedX, y: params.pedY });
   const hS = w2s(headingHandlePos());
+  const vhS = params.vehEnabled ? w2s(vehHandlePos()) : null;
   if (Math.hypot(sx - hS.x, sy - hS.y) < 12) drag = { type: 'heading' };
   else if (Math.hypot(sx - pedS.x, sy - pedS.y) < Math.max(12, PED_RADIUS * view.scale + 4)) drag = { type: 'ped' };
+  else if (vhS && Math.hypot(sx - vhS.x, sy - vhS.y) < 12) drag = { type: 'vehHeading' };
+  else if (scene.draw.veh && distPointToConvexPoly(s2w(sx, sy), scene.draw.veh.poly) < 6 / view.scale) drag = { type: 'veh' };
   else drag = { type: 'pan', sx, sy, cx: view.cx, cy: view.cy };
   canvas.style.cursor = drag.type === 'pan' ? 'grabbing' : 'move';
 });
@@ -839,6 +934,15 @@ window.addEventListener('mousemove', e => {
   } else if (drag.type === 'heading') {
     const w = s2w(sx, sy);
     params.pedHeadingDeg = Math.round(deg(Math.atan2(w.y - params.pedY, w.x - params.pedX)));
+    update();
+  } else if (drag.type === 'veh') {
+    const w = s2w(sx, sy);
+    params.vehX = Math.round(w.x * 100) / 100;
+    params.vehY = Math.round(w.y * 100) / 100;
+    update();
+  } else if (drag.type === 'vehHeading') {
+    const w = s2w(sx, sy);
+    params.vehHeadingDeg = Math.round(deg(Math.atan2(w.y - params.vehY, w.x - params.vehX)));
     update();
   }
 });
@@ -871,10 +975,16 @@ function update() {
   scene = computeScene(params);
   syncControls();
 
-  for (const q of QUANTITIES) varValueEls[q.id].textContent = fmtValue(scene.values[q.id]);
+  for (const q of QUANTITIES) {
+    const el = varValueEls[q.id];
+    el.textContent = scene.vehValues
+      ? `${fmtValue(scene.values[q.id])} · ${fmtValue(scene.vehValues[q.id])}`
+      : fmtValue(scene.values[q.id]);
+    el.title = scene.vehValues ? 'pedestrian · vehicle' : '';
+  }
   for (const a of ANGLE_VIZ) angleLabelEls[a.id].textContent = varNames[a.id];
 
-  const res = evalRule(scene.values);
+  const res = evalRuleAll(scene);
   ruleResult = res.error ? null : res.result;
   const verdict = document.getElementById('verdict');
   const msg = document.getElementById('ruleMsg');

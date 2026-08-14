@@ -89,16 +89,36 @@ check('syntax error has line', (() => {
   catch (e) { return e instanceof PyError && e.pyLine === 2; }
 })());
 
+/* ---- vehicle object ---- */
+console.log('vehicle object:');
+const VBASE = { curvature: 0, cwDist: 30, cwAngleDeg: 0, cwLen: 12, cwWid: 4,
+  pedX: 30, pedY: 7, pedHeadingDeg: -90, speed: 1.4, horizon: 3.0, wideBox: 3.1,
+  vehEnabled: true, vehX: 50, vehY: 1.75, vehHeadingDeg: 180, vehSpeed: 8 };
+const vs1 = computeScene(VBASE);
+check('veh values present when enabled', !!vs1.vehValues);
+check('veh is_pedestrian false / ped true', vs1.vehValues.is_pedestrian === false && vs1.values.is_pedestrian === true);
+check('veh driving through: prediction hits crosswalk', vs1.vehValues.prediction_hits_crosswalk === true);
+check('veh driving along road: approach ~90', Math.abs(vs1.vehValues.approach_angle - 90) < 1,
+  `got ${vs1.vehValues.approach_angle}`);
+check('veh distance_to_path = lane offset - half width', Math.abs(vs1.vehValues.distance_to_path - 0.8) < 0.01,
+  `got ${vs1.vehValues.distance_to_path}`);
+const vs2 = computeScene({ ...VBASE, vehX: 30, vehY: 0, vehSpeed: 0 });
+check('veh parked on crosswalk: on_crosswalk', vs2.vehValues.on_crosswalk === true);
+check('veh parked: no prediction', vs2.vehValues.prediction_hits_crosswalk === false && vs2.vehValues.trajectory_approach_angle === null);
+check('veh disabled: no vehValues', computeScene({ ...VBASE, vehEnabled: false }).vehValues === null);
+
 /* ---- 3. default rule against starter scenarios ---- */
 console.log('starter scenarios with bundled rule:');
 const starter = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'scenarios', 'starter.json'), 'utf8'));
 const starterAst = pyParse(starter.rule);
 const KNOWN_FAILING = new Set(['Loitering on crosswalk, walking along road']);  // deliberate miss of the current rule
 for (const s of starter.scenarios) {
-  const r = runRule(starterAst, computeScene(s.params).values);
+  const sc = computeScene(s.params);
+  const objectValues = sc.vehValues ? [sc.values, sc.vehValues] : [sc.values];
+  const blocked = objectValues.some(v => runRule(starterAst, v).result);  // rule runs per object
   const shouldPass = !KNOWN_FAILING.has(s.name);
   check(`starter: ${s.name}${shouldPass ? '' : ' (expected to fail)'}`,
-    (r.result === s.expected) === shouldPass, `rule returned ${r.result}, scenario expects ${s.expected}`);
+    (blocked === s.expected) === shouldPass, `rule returned ${blocked}, scenario expects ${s.expected}`);
 }
 
 console.log(failures ? `\n${failures} FAILURES` : '\nall tests passed');
