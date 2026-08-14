@@ -34,6 +34,6 @@
     { "name": "Loitering on crosswalk, walking along road", "expected": true,
       "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 1.5, "pedHeadingDeg": 0, "speed": 1.0, "horizon": 3.0, "wideBox": 3.1 } },
     { "name": "Vehicle driving through, ped on sidewalk", "expected": false,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 7, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1, "vehEnabled": true, "vehX": 50, "vehY": 1.75, "vehHeadingDeg": 180, "vehSpeed": 8 } }
+      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 7, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1, "vehEnabled": true, "vehX": 50, "vehY": 3.5, "vehHeadingDeg": 180, "vehSpeed": 8 } }
   ]
 }

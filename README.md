@@ -33,7 +33,9 @@ after changing the scene model.
 
 ## What it does
 
-- Draws a 2D top-down scene: ego path (with configurable **road curvature**), a
+- Draws a 2D top-down scene: a two-lane road (configurable **curvature**) with
+  dashed center marking, the ego on the right lane with its local path drawn
+  in green (autoware_mini RViz style) and an optional safety-corridor band, a
   **crosswalk** (position along the path, angle vs the road, dimensions), a
   **pedestrian** (position, heading, speed, prediction horizon), and optionally
   an **other vehicle** (4.5 × 1.9 m, own position/heading/speed) with the same

@@ -38,7 +38,7 @@ return False`;
 const DEFAULT_PARAMS = {
   curvature: 0, cwDist: 30, cwAngleDeg: 0, cwLen: 12, cwWid: 4,
   pedX: 30, pedY: 7, pedHeadingDeg: -90, speed: 1.4, horizon: 3.0, wideBox: 3.1,
-  vehEnabled: false, vehX: 50, vehY: 1.75, vehHeadingDeg: 180, vehSpeed: 8,
+  vehEnabled: false, vehX: 50, vehY: 3.5, vehHeadingDeg: 180, vehSpeed: 8,
 };
 
 const STARTER_SCENARIOS = [
@@ -174,6 +174,7 @@ const angleViz = Object.fromEntries(ANGLE_VIZ.map(a => [a.id, true]));
 const angleLabelEls = {};
 let angleVizObject = 'ped';   // whose angles the overlays show: 'ped' | 'veh'
 let vehRadioEl = null;
+let showSafetyBox = true;
 
 function buildAngleToggles() {
   const host = document.getElementById('angleToggles');
@@ -218,6 +219,23 @@ function buildAngleToggles() {
     row.appendChild(name);
     host.appendChild(row);
   }
+
+  const safetyRow = document.createElement('label');
+  safetyRow.className = 'tog';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = showSafetyBox;
+  cb.addEventListener('change', () => { showSafetyBox = cb.checked; draw(); });
+  const swatch = document.createElement('span');
+  swatch.className = 'swatch';
+  swatch.style.background = 'var(--safety)';
+  const name = document.createElement('span');
+  name.textContent = 'ego safety corridor';
+  safetyRow.title = 'wide_safety_box_width band around the local path';
+  safetyRow.appendChild(cb);
+  safetyRow.appendChild(swatch);
+  safetyRow.appendChild(name);
+  host.appendChild(safetyRow);
 }
 
 /* ---------------- variables panel ---------------- */
@@ -652,7 +670,7 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
   const d = scene.draw;
-  const ROAD_HALF = 3.5;
+  const LANE_W = 3.5;  // ego path = right lane center; road spans -LANE_W/2 .. +1.5*LANE_W around it
 
   // grid (10 m)
   ctx.strokeStyle = cssVar('--grid');
@@ -667,9 +685,9 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(0, s.y); ctx.lineTo(cw, s.y); ctx.stroke();
   }
 
-  // road surface
-  const left = offsetPath(d.pathPts, params.curvature, ROAD_HALF);
-  const right = offsetPath(d.pathPts, params.curvature, -ROAD_HALF);
+  // two-lane road surface; ego drives on the right lane
+  const left = offsetPath(d.pathPts, params.curvature, LANE_W * 1.5);
+  const right = offsetPath(d.pathPts, params.curvature, -LANE_W / 2);
   ctx.beginPath();
   left.forEach((p, i) => { const s = w2s(p); i ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); });
   right.slice().reverse().forEach(p => { const s = w2s(p); ctx.lineTo(s.x, s.y); });
@@ -681,21 +699,30 @@ function draw() {
   linePath(left); ctx.stroke();
   linePath(right); ctx.stroke();
 
-  // lane divider (dashed centerline of the road, offset 0 = ego lane center; draw road middle at 0)
+  // dashed center marking between the lanes
   ctx.setLineDash([10, 10]);
-  ctx.strokeStyle = cssVar('--road-edge');
-  linePath(d.pathPts);
+  ctx.strokeStyle = cssVar('--zebra');
+  ctx.lineWidth = 2;
+  linePath(offsetPath(d.pathPts, params.curvature, LANE_W / 2));
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // wide safety corridor around the path
-  ctx.save();
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = cssVar('--safety');
-  ctx.lineWidth = params.wideBox * view.scale;
+  // wide safety corridor around the path (optional)
+  if (showSafetyBox) {
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = cssVar('--safety');
+    ctx.lineWidth = params.wideBox * view.scale;
+    linePath(d.pathPts);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ego local path (green, like autoware_mini's RViz look)
+  ctx.strokeStyle = cssVar('--path');
+  ctx.lineWidth = 2;
   linePath(d.pathPts);
   ctx.stroke();
-  ctx.restore();
 
   // crosswalk zebra
   const cs = w2s(d.cwPose);
@@ -738,7 +765,7 @@ function draw() {
 
   // path direction arrow
   const tip = d.pathPts[d.pathPts.length - 1];
-  drawArrowHead(tip, tip.h, 9, cssVar('--road-edge'));
+  drawArrowHead(tip, tip.h, 9, cssVar('--path'));
 
   // other vehicle + its naive prediction
   if (d.veh) {

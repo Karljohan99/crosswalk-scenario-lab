@@ -24,6 +24,7 @@
   --angle-hcw: #4a3aa7;
   --veh: #7a52c7;
   --veh-pred: rgba(122,82,199,0.16);
+  --path: #0ca30c;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
@@ -49,6 +50,7 @@
     --angle-hcw: #9085e9;
     --veh: #9d7fe0;
     --veh-pred: rgba(144,133,233,0.20);
+    --path: #3ecf5e;
   }
 }
 :root[data-theme="dark"] {
@@ -74,6 +76,7 @@
   --angle-hcw: #9085e9;
   --veh: #9d7fe0;
   --veh-pred: rgba(144,133,233,0.20);
+  --path: #3ecf5e;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
