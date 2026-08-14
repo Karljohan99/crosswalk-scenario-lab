@@ -160,7 +160,7 @@ function computeScene(p) {
   const distToCrosswalk = Math.max(0, dCwCenter - PED_RADIUS);
 
   const predLen = p.speed * p.horizon;
-  let predSeg = null, buffer = null, clip = null, entry = null;
+  let predSeg = null, buffer = null, clip = null, entry = null, entryNp = null;
   let hitsCrosswalk = false, trajApproachAngle = null, entryTowardPathH = null;
   if (predLen > 1e-6) {
     const dir = { x: Math.cos(pedH), y: Math.sin(pedH) };
@@ -174,7 +174,8 @@ function computeScene(p) {
       let minT = Infinity;
       for (const v of clip) minT = Math.min(minT, projectOnSegment(p0, p1, v).t);
       entry = { x: p0.x + dir.x * minT, y: p0.y + dir.y * minT };
-      entryTowardPathH = headingTowardPath(pathPts, entry);
+      entryNp = nearestOnPolyline(pathPts, entry);
+      entryTowardPathH = Math.atan2(entryNp.y - entry.y, entryNp.x - entry.x);
       trajApproachAngle = angDiffDeg(pedH, entryTowardPathH);  // trajectory heading == pedH (straight prediction)
     }
   }
@@ -197,7 +198,7 @@ function computeScene(p) {
       speed: p.speed,
       wide_safety_box_width: p.wideBox,
     },
-    draw: { pathPts, cwPose, axisH, cwPoly, ped, pedH, np, towardPathH, predSeg, buffer, clip, entry, entryTowardPathH },
+    draw: { pathPts, cwPose, axisH, cwPoly, ped, pedH, np, towardPathH, predSeg, buffer, clip, entry, entryNp, entryTowardPathH },
   };
 }
 

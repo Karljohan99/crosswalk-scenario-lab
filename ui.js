@@ -456,7 +456,7 @@ function drawRay(origin, heading, lenM, color, dashed) {
 }
 
 // arc between two world headings around a world point, radius in meters, with label
-function drawAngleArc(center, h1, h2, radiusM, label, color) {
+function drawAngleArc(center, h1, h2, radiusM, label, color, labelOffsetM = 1.0) {
   let d = (h2 - h1) % (2 * Math.PI);
   if (d > Math.PI) d -= 2 * Math.PI;
   if (d < -Math.PI) d += 2 * Math.PI;
@@ -471,7 +471,7 @@ function drawAngleArc(center, h1, h2, radiusM, label, color) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
   const mid = h1 + d / 2;
-  const lp = w2s({ x: center.x + (radiusM + 1.0) * Math.cos(mid), y: center.y + (radiusM + 1.0) * Math.sin(mid) });
+  const lp = w2s({ x: center.x + (radiusM + labelOffsetM) * Math.cos(mid), y: center.y + (radiusM + labelOffsetM) * Math.sin(mid) });
   ctx.font = '12px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -630,17 +630,48 @@ function draw() {
     drawArrowHead(d.predSeg[1], d.pedH, 8, cssVar('--ped'));
   }
 
-  // trajectory entry point + its angle arc (arc only when far enough from the ped's own arc)
+  // trajectory approach angle at the crosswalk entry point: the angle between the
+  // trajectory direction and the ray from the entry point to the nearest path point
   if (d.entry) {
+    const col = cssVar('--cw-hit');
+    // prediction ∩ crosswalk overlap area — what makes this crosswalk "hit"
+    if (angleViz.trajectory_approach_angle && d.clip && d.clip.length >= 3) {
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      polyPath(d.clip);
+      ctx.fillStyle = col;
+      ctx.fill();
+      ctx.restore();
+    }
+    if (angleViz.trajectory_approach_angle) {
+      // leg 1: trajectory direction at the entry point
+      const ahead = { x: d.entry.x + 2.4 * Math.cos(d.pedH), y: d.entry.y + 2.4 * Math.sin(d.pedH) };
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      linePath([d.entry, ahead]);
+      ctx.stroke();
+      drawArrowHead(ahead, d.pedH, 7, col);
+      // leg 2: dashed ray to the nearest point on the ego path
+      drawRay(d.entry, d.entryTowardPathH, Math.hypot(d.entryNp.x - d.entry.x, d.entryNp.y - d.entry.y), col, true);
+      const enS = w2s(d.entryNp);
+      ctx.beginPath();
+      ctx.arc(enS.x, enS.y, 3, 0, 2 * Math.PI);
+      ctx.fillStyle = col;
+      ctx.fill();
+      // push the label further out when the entry point sits close to the ped's own arc
+      const nearPed = Math.hypot(d.entry.x - d.ped.x, d.entry.y - d.ped.y) < 3.5;
+      drawAngleArc(d.entry, d.pedH, d.entryTowardPathH, 1.4,
+        `${varNames.trajectory_approach_angle}=${scene.values.trajectory_approach_angle.toFixed(0)}°`, col,
+        nearPed ? 2.8 : 1.0);
+    }
     const eS = w2s(d.entry);
     ctx.beginPath();
     ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = cssVar('--cw-hit');
+    ctx.fillStyle = col;
     ctx.fill();
-    if (angleViz.trajectory_approach_angle && Math.hypot(d.entry.x - d.ped.x, d.entry.y - d.ped.y) > 3.5) {
-      drawAngleArc(d.entry, d.pedH, d.entryTowardPathH, 1.5,
-        `${varNames.trajectory_approach_angle}=${scene.values.trajectory_approach_angle.toFixed(0)}°`, cssVar('--cw-hit'));
-    }
+    ctx.strokeStyle = cssVar('--surface');
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
 
   // pedestrian footprint + heading arrow with drag handle
