@@ -60,6 +60,7 @@ let params = { ...DEFAULT_PARAMS };
 let varNames = Object.fromEntries(QUANTITIES.map(q => [q.id, q.id]));
 let scenarios = STARTER_SCENARIOS.map(s => ({ name: s.name, expected: s.expected, params: { ...s.params } }));
 let selectedScenario = -1;
+let workingParams = null;  // snapshot of the unsaved working scene while a scenario is loaded
 let ruleAst = null;
 let ruleError = null;
 let scene = null;
@@ -260,6 +261,22 @@ function evalRule(values) {
 function renderScenarios() {
   const host = document.getElementById('scenList');
   host.innerHTML = '';
+
+  if (workingParams) {
+    const back = document.createElement('div');
+    back.className = 'scen-row working';
+    back.textContent = '◂ back to working scene (unsaved)';
+    back.title = 'Restore the scene you were editing before loading a scenario';
+    back.addEventListener('click', () => {
+      params = { ...workingParams };
+      workingParams = null;
+      selectedScenario = -1;
+      update();
+      fitView();
+    });
+    host.appendChild(back);
+  }
+
   let passCount = 0, total = scenarios.length;
   scenarios.forEach((s, idx) => {
     const values = computeScene(s.params).values;
@@ -334,6 +351,7 @@ function renderScenarios() {
 }
 
 function loadScenario(idx) {
+  if (selectedScenario === -1) workingParams = { ...params };
   selectedScenario = idx;
   params = { ...scenarios[idx].params };
   document.getElementById('scenName').value = scenarios[idx].name;
@@ -369,6 +387,7 @@ function importJson(text) {
     }));
   }
   selectedScenario = -1;
+  workingParams = null;
   syncVarInputs();
   compileRule();
   update();
