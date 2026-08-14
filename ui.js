@@ -63,6 +63,7 @@ let selectedScenario = -1;
 let ruleAst = null;
 let ruleError = null;
 let scene = null;
+let ruleResult = null;  // current verdict: true/false, or null on rule error
 let expectedForSave = true;
 
 /* ---------------- controls ---------------- */
@@ -554,9 +555,9 @@ function draw() {
   ctx.restore();
   // crosswalk outline (highlight when prediction hits or ped on it)
   polyPath(d.cwPoly);
-  const cwActive = scene.values.on_crosswalk || scene.values.prediction_hits_crosswalk;
-  ctx.strokeStyle = cwActive ? cssVar('--cw-hit') : cssVar('--road-edge');
-  ctx.lineWidth = cwActive ? 2.5 : 1.5;
+  const blocked = ruleResult === true;
+  ctx.strokeStyle = blocked ? cssVar('--bad') : cssVar('--road-edge');
+  ctx.lineWidth = blocked ? 2.5 : 1.5;
   ctx.stroke();
 
   // ego vehicle at path start (front bumper at s = 0)
@@ -773,6 +774,7 @@ function update() {
   for (const a of ANGLE_VIZ) angleLabelEls[a.id].textContent = varNames[a.id];
 
   const res = evalRule(scene.values);
+  ruleResult = res.error ? null : res.result;
   const verdict = document.getElementById('verdict');
   const msg = document.getElementById('ruleMsg');
   if (res.error) {
