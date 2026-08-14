@@ -174,7 +174,6 @@ const angleViz = Object.fromEntries(ANGLE_VIZ.map(a => [a.id, true]));
 const angleLabelEls = {};
 let angleVizObject = 'ped';   // whose angles the overlays show: 'ped' | 'veh'
 let vehRadioEl = null;
-let showSafetyBox = true;
 
 function buildAngleToggles() {
   const host = document.getElementById('angleToggles');
@@ -220,22 +219,6 @@ function buildAngleToggles() {
     host.appendChild(row);
   }
 
-  const safetyRow = document.createElement('label');
-  safetyRow.className = 'tog';
-  const cb = document.createElement('input');
-  cb.type = 'checkbox';
-  cb.checked = showSafetyBox;
-  cb.addEventListener('change', () => { showSafetyBox = cb.checked; draw(); });
-  const swatch = document.createElement('span');
-  swatch.className = 'swatch';
-  swatch.style.background = 'var(--safety)';
-  const name = document.createElement('span');
-  name.textContent = 'ego safety corridor';
-  safetyRow.title = 'wide_safety_box_width band around the local path';
-  safetyRow.appendChild(cb);
-  safetyRow.appendChild(swatch);
-  safetyRow.appendChild(name);
-  host.appendChild(safetyRow);
 }
 
 /* ---------------- variables panel ---------------- */
@@ -707,18 +690,16 @@ function draw() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // wide safety corridor around the path (optional)
-  if (showSafetyBox) {
-    ctx.save();
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = cssVar('--safety');
-    ctx.lineWidth = params.wideBox * view.scale;
-    linePath(d.pathPts);
-    ctx.stroke();
-    ctx.restore();
-  }
+  // local path drawn at safety-corridor width, light green like autoware_mini
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = cssVar('--safety');
+  ctx.lineWidth = params.wideBox * view.scale;
+  linePath(d.pathPts);
+  ctx.stroke();
+  ctx.restore();
 
-  // ego local path (green, like autoware_mini's RViz look)
+  // local path centerline
   ctx.strokeStyle = cssVar('--path');
   ctx.lineWidth = 2;
   linePath(d.pathPts);
