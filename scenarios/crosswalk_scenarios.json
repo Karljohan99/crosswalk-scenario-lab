@@ -1,0 +1,294 @@
+{
+  "version": 1,
+  "rule": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False",
+  "variable_names": {
+    "approach_angle": "approach_angle",
+    "trajectory_approach_angle": "trajectory_approach_angle",
+    "crosswalk_angle": "crosswalk_angle",
+    "heading_to_crosswalk_angle": "heading_to_crosswalk_angle",
+    "distance_to_path": "distance_to_path",
+    "distance_to_crosswalk": "distance_to_crosswalk",
+    "on_crosswalk": "on_crosswalk",
+    "prediction_hits_crosswalk": "prediction_hits_crosswalk",
+    "prediction_length": "prediction_length",
+    "speed": "speed",
+    "wide_safety_box_width": "wide_safety_box_width",
+    "is_pedestrian": "is_pedestrian"
+  },
+  "rules": [
+    {
+      "name": "production rule",
+      "code": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False"
+    },
+    {
+      "name": "crosswalk_axis_alignment",
+      "code": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif heading_to_crosswalk_angle >= 60 and 180 - heading_to_crosswalk_angle >= 60:\n    return False\nif angle >= 90 and distance_to_path > wide_safety_box_width / 2:\n    return False\nreturn True"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Approaching, straight road",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": -90,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Walking parallel on sidewalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Departed, far side, walking away",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": -6,
+        "pedHeadingDeg": -90,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Departing but still on the road",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30.07,
+        "pedY": 3.04,
+        "pedHeadingDeg": 90,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Approaching on curved road",
+      "expected": true,
+      "params": {
+        "curvature": 0.02,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 23.43,
+        "pedY": 15.75,
+        "pedHeadingDeg": -55.6,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Cutting diagonally over angled crosswalk",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 30,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 26.25,
+        "pedY": 8.25,
+        "pedHeadingDeg": -60,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Vehicle driving through, ped on sidewalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Vehicle parked on crosswalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 30.5,
+        "vehY": 1.2,
+        "vehHeadingDeg": 0,
+        "vehSpeed": 0
+      }
+    },
+    {
+      "name": "Vehicle cutting diagonally toward ego lane",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 35,
+        "vehY": 10,
+        "vehHeadingDeg": -135,
+        "vehSpeed": 5
+      }
+    },
+    {
+      "name": "Pedestrian approaching a skewed crosswalk at a large angle",
+      "expected": true,
+      "params": {
+        "curvature": -0.006,
+        "cwDist": 29,
+        "cwAngleDeg": -18,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 28.14,
+        "pedY": 6.4,
+        "pedHeadingDeg": -53,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Vehicle turning right on the crosswalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 39.81,
+        "pedY": 10.25,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 28.29,
+        "vehY": 4.47,
+        "vehHeadingDeg": 147,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Curved road, skewed crosswalk and misaligned vehicle",
+      "expected": false,
+      "params": {
+        "curvature": -0.006,
+        "cwDist": 30,
+        "cwAngleDeg": -20,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 21.29,
+        "pedY": 7.68,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 31.1,
+        "vehY": 0.92,
+        "vehHeadingDeg": -179,
+        "vehSpeed": 8
+      }
+    }
+  ]
+}
