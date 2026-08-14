@@ -1,11 +1,95 @@
 # Crosswalk Scenario Lab
 
-Interactive sandbox for designing the pedestrian **approach-angle rule** of the
-autoware_mini crosswalk checker
-(`nodes/planning/local/rule/collision_checker.py`, `check_pedestrian_crosswalk`).
+Interactive sandbox for designing the **crosswalk-blocking rule** of an
+autonomous-vehicle planner: should the ego vehicle treat a crosswalk as blocked,
+given how a pedestrian (or another vehicle) is positioned and moving?
 
-Open **`index.html`** directly in a browser — no build step, no server, no
+**Live demo:** https://karljohan99.github.io/crosswalk-scenario-lab/
+
+Or open **`index.html`** directly in a browser — no build step, no server, no
 network access needed (plain scripts, so `file://` works).
+
+## What it does
+
+- Draws a 2D top-down scene: a two-lane road (configurable **curvature**) with
+  dashed center marking, the ego on the right lane with its local path drawn
+  as a light-green band at safety-corridor width, a **crosswalk** (position
+  along the path, angle vs the road, dimensions), a **pedestrian** (position,
+  heading, speed, prediction horizon), and optionally an **other vehicle**
+  (4.5 × 1.9 m, own position/heading/speed) with the same naive straight
+  prediction. The rule runs once per object and the crosswalk is blocked if
+  any object triggers; the `is_pedestrian` variable lets a rule distinguish
+  them.
+- Computes the geometric quantities a rule-based checker works with, live, and
+  visualizes the angles on the canvas (toggleable per angle, switchable
+  between pedestrian and vehicle).
+- Lets you write the blocking decision as a **Python snippet** that must
+  `return True` (blocked) or `False`. A built-in Python-subset interpreter runs
+  it — no server, no Pyodide.
+- Lets you save **scenarios** with an expected outcome (blocked / clear) and
+  shows how many scenarios the current rule decides correctly.
+- Lets you save multiple **rules** and compare them: each saved rule shows how
+  many scenarios it decides correctly, so candidate rules can be ranked at a
+  glance.
+- **Export / Import** serializes scenarios + rules + variable names as JSON,
+  via text box or file (`scenarios/starter.json` is such a file).
+
+Drag the pedestrian or vehicle to move it, drag the arrow tip to rotate its
+heading, scroll to zoom, drag the background to pan.
+
+## The model
+
+- Each object's prediction is **naive**: a straight constant-velocity segment
+  starting at the object's front, of length `speed × horizon`, buffered to the
+  object's width with flat caps.
+- The **approach angle** is the angle between the object's heading and the
+  direction from the object toward its nearest point on the ego path
+  (0–180°; 0 = heading straight at the path).
+- The **trajectory approach angle** is the same angle taken at the prediction's
+  crosswalk **entry point** — the nearest point of (prediction buffer ∩
+  crosswalk polygon) along the trajectory. It is `None` when the prediction
+  misses the crosswalk.
+- The bundled example rule blocks when the relevant angle is under 60°, or
+  when the object is departing (`180 − angle < 60°`) but still within half of
+  `wide_safety_box_width` of the path — so pedestrians walking parallel to the
+  road, and vehicles driving along it, do not block.
+
+Not modeled: temporal filtering (the tool evaluates a single frame) and ego
+motion / braking dynamics — the tool answers *should this crosswalk be treated
+as blocked*, not *can we stop in time*.
+
+The geometry is cross-validated against a Python/shapely reference (angles
+agree to < 0.15° over straight, curved, and angled-crosswalk configurations).
+
+## Variables available in the rule
+
+Each variable can be **renamed** in the Variables panel; the rule sees the
+names you chose. When the other vehicle is enabled, the rule runs once per
+object with that object's values bound.
+
+| default name | meaning |
+|---|---|
+| `approach_angle` | object heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) |
+| `trajectory_approach_angle` | same angle taken at the prediction's crosswalk entry point; `None` if the prediction misses the crosswalk |
+| `crosswalk_angle` | crossing axis vs road direction, 0–90° (90 = perpendicular crosswalk) |
+| `heading_to_crosswalk_angle` | object heading vs crossing-axis direction, 0–180° |
+| `distance_to_path` | object footprint to ego path centerline (m) |
+| `distance_to_crosswalk` | object footprint to crosswalk polygon (m, 0 if touching) |
+| `on_crosswalk` | object footprint intersects the crosswalk polygon (bool) |
+| `prediction_hits_crosswalk` | prediction buffer intersects the crosswalk polygon (bool) |
+| `prediction_length` | speed × horizon (m) |
+| `speed` | object speed (m/s) |
+| `wide_safety_box_width` | tunable parameter (default 3.1 m); departing objects within half of it still block |
+| `is_pedestrian` | `True` for the pedestrian, `False` for the other vehicle (bool) |
+
+## Python subset supported in the rule
+
+`if / elif / else` (indent- or single-line), assignments, `return`, `pass`,
+`and / or / not`, chained comparisons (`0 < a < 60`), `is None / is not None`,
+conditional expressions, arithmetic (`+ - * / // % **`), `abs min max round`,
+and `math.` (`degrees radians sin cos tan asin acos atan atan2 hypot sqrt fabs
+floor ceil exp log pi e`). No loops, strings, or containers — the rule is a
+pure decision function.
 
 ## Layout
 
@@ -26,90 +110,6 @@ node tests/test_core.js
 
 Checks the geometry against a Python/shapely reference (`tests/reference.json`),
 exercises the interpreter (syntax, semantics, error cases), and runs the bundled
-rule against the starter scenarios. The reference values are generated by
-`tests/reference.py`, which uses the autoware_mini repo's own `geometry.py`
-helpers — regenerate with `python3 tests/reference.py > tests/reference.json`
-after changing the scene model.
-
-## What it does
-
-- Draws a 2D top-down scene: a two-lane road (configurable **curvature**) with
-  dashed center marking, the ego on the right lane with its local path drawn
-  as a light-green band at safety-corridor width (autoware_mini RViz style), a
-  **crosswalk** (position along the path, angle vs the road, dimensions), a
-  **pedestrian** (position, heading, speed, prediction horizon), and optionally
-  an **other vehicle** (4.5 × 1.9 m, own position/heading/speed) with the same
-  naive straight prediction. The rule runs once per object — like the real
-  checker, which iterates all predicted objects — and the crosswalk is blocked
-  if any object triggers; the `is_pedestrian` variable lets a rule distinguish
-  them.
-- Computes the same geometric quantities the real checker computes, live.
-- Lets you write the blocking decision as a **Python snippet** that must
-  `return True` (blocked) or `False`. A built-in Python-subset interpreter runs
-  it — no server, no Pyodide.
-- Lets you save **scenarios** with an expected outcome (blocked / clear) and
-  shows how many scenarios the current rule decides correctly.
-- Lets you save multiple **rules** and compare them: each saved rule shows how
-  many scenarios it decides correctly, so candidate rules can be ranked at a
-  glance.
-- **Export / Import** serializes scenarios + rule + variable names as JSON
-  (`scenarios/starter.json` is such a file — paste it into the import box).
-
-Drag the pedestrian to move it, drag the arrow tip to rotate its heading,
-scroll to zoom, drag the background to pan.
-
-## Variables available in the rule
-
-Each variable can be **renamed** in the Variables panel; the rule sees the
-names you chose. Defaults, and where they come from in autoware_mini:
-
-| default name | meaning | autoware_mini source |
-|---|---|---|
-| `approach_angle` | ped heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) | `collision_checker.py:779`, `geometry.py get_angle_between_two_headings`, `path.py get_heading_towards_path` |
-| `trajectory_approach_angle` | same angle taken at the predicted trajectory's crosswalk entry point; `None` if the prediction misses the crosswalk | `collision_checker.py:806-817` |
-| `crosswalk_angle` | crossing axis vs road direction, 0–90° (90 = perpendicular crosswalk) | derived |
-| `heading_to_crosswalk_angle` | ped heading vs crossing-axis direction, 0–180° | derived |
-| `distance_to_path` | ped footprint to ego path centerline (m) | used by the `dwithin` wide-box check |
-| `distance_to_crosswalk` | ped footprint to crosswalk polygon (m, 0 if touching) | derived |
-| `on_crosswalk` | ped footprint intersects the crosswalk polygon | branch A of the checker |
-| `prediction_hits_crosswalk` | prediction buffer intersects the crosswalk polygon | branch B of the checker |
-| `prediction_length` | speed × horizon (m) | `naive_predictor.py` |
-| `speed` | pedestrian speed (m/s) | |
-| `wide_safety_box_width` | config param (default 3.1 m); departing peds within half of it still block | `planning.yaml` |
-
-## Fidelity to the real checker
-
-The scene mirrors the production mechanics so a rule found here ports directly:
-
-- Pedestrian prediction is a **straight segment** starting at the object's
-  front, length `speed × horizon` — exactly what `naive_predictor.py` produces
-  for pedestrians (map-based prediction never matches crosswalks, so pedestrian
-  predictions are always naive; default horizon 3 s).
-- The trajectory is buffered by **half the object width** with flat caps
-  (`collision.py create_trajectory_buffers`), and the entry point is the
-  nearest point of (buffer ∩ crosswalk) along the trajectory, as in
-  `collision_checker.py:806-817`.
-- Angle math replicates `get_angle_between_two_headings` (0–π absolute
-  difference) and `get_heading_towards_path`.
-- The default rule preloaded in the editor is the current production rule
-  (`_crosswalk_is_approaching_or_departing`): blocked if `angle < 60°`, or
-  departing (`180 − angle < 60°`) while still within
-  `wide_safety_box_width / 2` of the path.
-
-Not modeled: the consecutive-detection counter
-(`prediction_counter_min_limit`) — the tool evaluates a single frame — and
-ego motion / braking dynamics (the tool answers *should this crosswalk be
-treated as blocked*, not *can we stop in time*).
-
-The geometry was cross-validated against a Python reference using the repo's
-own `geometry.py` helpers and shapely (angles agree to < 0.15° over straight,
-curved, and angled-crosswalk configurations).
-
-## Python subset supported in the rule
-
-`if / elif / else` (indent- or single-line), assignments, `return`, `pass`,
-`and / or / not`, chained comparisons (`0 < a < 60`), `is None / is not None`,
-conditional expressions, arithmetic (`+ - * / // % **`), `abs min max round`,
-and `math.` (`degrees radians sin cos tan asin acos atan atan2 hypot sqrt fabs
-floor ceil exp log pi e`). No loops, strings, or containers — the rule is a
-pure decision function.
+rule against the starter scenarios. Regenerate the reference values with
+`python3 tests/reference.py > tests/reference.json` after changing the scene
+model (requires Python with numpy and shapely).

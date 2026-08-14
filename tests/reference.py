@@ -1,18 +1,20 @@
-"""Reference values for crosswalk-scenario-lab geometry, computed with the
-autoware_mini repo's own helpers (get_angle_between_two_headings) and shapely —
-same mechanics as collision_checker.py check_pedestrian_crosswalk.
+"""Reference values for crosswalk-scenario-lab geometry, computed independently
+with shapely, so the JS implementation in core.js can be checked against it.
 
 Usage: python3 reference.py > reference.json
-Requires the autoware_mini repo and ROS Noetic python packages (paths below).
+Requires numpy and shapely (>= 2.0).
 """
-import sys, json, math
-sys.path.insert(0, '/opt/ros/noetic/lib/python3/dist-packages')
-sys.path.insert(0, '/home/pilve/autoware_mini_ws/src/autoware_mini/src')
+import json, math
 
 import numpy as np
 import shapely
 from shapely.geometry import LineString, Polygon
-from autoware_mini.geometry import get_angle_between_two_headings
+
+
+def get_angle_between_two_headings(angle1, angle2):
+    """Smallest absolute difference between two headings (radians), 0..pi."""
+    diff = np.abs(angle1 - angle2)
+    return np.where(diff > np.pi, 2 * np.pi - diff, diff)
 
 PED_RADIUS = 0.4
 PATH_LENGTH = 100
