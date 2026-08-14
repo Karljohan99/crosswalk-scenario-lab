@@ -1,0 +1,158 @@
+[
+ {
+  "params": {
+   "curvature": 0,
+   "cwDist": 30,
+   "cwAngleDeg": 0,
+   "cwLen": 12,
+   "cwWid": 4,
+   "pedX": 30,
+   "pedY": 7,
+   "pedHeadingDeg": -90,
+   "speed": 1.4,
+   "horizon": 3.0,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 0.0,
+   "trajectory_approach_angle": 0.0,
+   "crosswalk_angle": 90.0,
+   "heading_to_crosswalk_angle": 180.0,
+   "distance_to_path": 6.6,
+   "distance_to_crosswalk": 0.6,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": true,
+   "prediction_length": 4.199999999999999
+  }
+ },
+ {
+  "params": {
+   "curvature": 0.02,
+   "cwDist": 30,
+   "cwAngleDeg": 0,
+   "cwLen": 12,
+   "cwWid": 4,
+   "pedX": 24,
+   "pedY": 14,
+   "pedHeadingDeg": -70,
+   "speed": 1.5,
+   "horizon": 3.0,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 13.518031015152715,
+   "trajectory_approach_angle": 13.518031015152696,
+   "crosswalk_angle": 90.0,
+   "heading_to_crosswalk_angle": 165.6225322921506,
+   "distance_to_path": 6.332954733443269,
+   "distance_to_crosswalk": 0.3364985017707339,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": true,
+   "prediction_length": 4.5
+  }
+ },
+ {
+  "params": {
+   "curvature": 0,
+   "cwDist": 30,
+   "cwAngleDeg": 30,
+   "cwLen": 12,
+   "cwWid": 4,
+   "pedX": 25,
+   "pedY": 8,
+   "pedHeadingDeg": -45,
+   "speed": 1.4,
+   "horizon": 3.0,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 45.0,
+   "trajectory_approach_angle": 45.0,
+   "crosswalk_angle": 60.000000000000014,
+   "heading_to_crosswalk_angle": 165.0,
+   "distance_to_path": 7.6,
+   "distance_to_crosswalk": 3.028203230275508,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": true,
+   "prediction_length": 4.199999999999999
+  }
+ },
+ {
+  "params": {
+   "curvature": -0.03,
+   "cwDist": 30,
+   "cwAngleDeg": 0,
+   "cwLen": 12,
+   "cwWid": 4,
+   "pedX": 35,
+   "pedY": -9,
+   "pedHeadingDeg": 100,
+   "speed": 1.4,
+   "horizon": 5,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 114.56633332109249,
+   "trajectory_approach_angle": null,
+   "crosswalk_angle": 90.0,
+   "heading_to_crosswalk_angle": 61.566201561774086,
+   "distance_to_path": 8.894809683734,
+   "distance_to_crosswalk": 2.883434158800351,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": false,
+   "prediction_length": 7.0
+  }
+ },
+ {
+  "params": {
+   "curvature": 0,
+   "cwDist": 30,
+   "cwAngleDeg": 0,
+   "cwLen": 12,
+   "cwWid": 4,
+   "pedX": 30,
+   "pedY": -1,
+   "pedHeadingDeg": -90,
+   "speed": 1.4,
+   "horizon": 3.0,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 180.0,
+   "trajectory_approach_angle": 180.0,
+   "crosswalk_angle": 90.0,
+   "heading_to_crosswalk_angle": 180.0,
+   "distance_to_path": 0.6,
+   "distance_to_crosswalk": 0.0,
+   "on_crosswalk": true,
+   "prediction_hits_crosswalk": true,
+   "prediction_length": 4.199999999999999
+  }
+ },
+ {
+  "params": {
+   "curvature": 0,
+   "cwDist": 30,
+   "cwAngleDeg": 0,
+   "cwLen": 12,
+   "cwWid": 4,
+   "pedX": 30,
+   "pedY": 7,
+   "pedHeadingDeg": -90,
+   "speed": 0,
+   "horizon": 3.0,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 0.0,
+   "trajectory_approach_angle": null,
+   "crosswalk_angle": 90.0,
+   "heading_to_crosswalk_angle": 180.0,
+   "distance_to_path": 6.6,
+   "distance_to_crosswalk": 0.6,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": false,
+   "prediction_length": 0.0
+  }
+ }
+]
