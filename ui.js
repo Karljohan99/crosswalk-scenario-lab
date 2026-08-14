@@ -37,7 +37,7 @@ return False`;
 
 const DEFAULT_PARAMS = {
   curvature: 0, cwDist: 30, cwAngleDeg: 0, cwLen: 12, cwWid: 4,
-  pedX: 30, pedY: 7, pedHeadingDeg: -90, speed: 1.4, horizon: 3.0, wideBox: 3.1,
+  pedX: 30, pedY: 8.5, pedHeadingDeg: -90, speed: 1.4, horizon: 3.0, wideBox: 3.1,
   vehEnabled: false, vehX: 50, vehY: 3.5, vehHeadingDeg: 180, vehSpeed: 8,
 };
 
@@ -47,17 +47,21 @@ const STARTER_SCENARIOS = [
   { name: 'Walking parallel on sidewalk', expected: false,
     params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0 } },
   { name: 'Departed, far side, walking away', expected: false,
-    params: { ...DEFAULT_PARAMS, pedY: -7 } },
+    params: { ...DEFAULT_PARAMS, pedY: -6 } },
   { name: 'Departing but still on the road', expected: true,
     params: { ...DEFAULT_PARAMS, pedY: -1 } },
   { name: 'Approaching on curved road', expected: true,
-    params: { ...DEFAULT_PARAMS, curvature: 0.02, pedX: 24.28, pedY: 14.51, pedHeadingDeg: -55.6 } },
+    params: { ...DEFAULT_PARAMS, curvature: 0.02, pedX: 23.43, pedY: 15.75, pedHeadingDeg: -55.6 } },
   { name: 'Cutting diagonally over angled crosswalk', expected: true,
-    params: { ...DEFAULT_PARAMS, cwAngleDeg: 30, pedX: 26.5, pedY: 6.5, pedHeadingDeg: -60 } },
+    params: { ...DEFAULT_PARAMS, cwAngleDeg: 30, pedX: 26.25, pedY: 8.25, pedHeadingDeg: -60 } },
   { name: 'Loitering on crosswalk, walking along road', expected: true,
     params: { ...DEFAULT_PARAMS, pedX: 30, pedY: 1.5, pedHeadingDeg: 0, speed: 1.0 } },
   { name: 'Vehicle driving through, ped on sidewalk', expected: false,
     params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true } },
+  { name: 'Vehicle parked on crosswalk', expected: false,
+    params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true, vehX: 30.5, vehY: 1.2, vehHeadingDeg: 0, vehSpeed: 0 } },
+  { name: 'Vehicle cutting diagonally toward ego lane', expected: true,
+    params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true, vehX: 35, vehY: 10, vehHeadingDeg: -135, vehSpeed: 5 } },
 ];
 
 let params = { ...DEFAULT_PARAMS };
