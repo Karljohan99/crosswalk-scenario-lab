@@ -27,9 +27,9 @@ const ref = JSON.parse(fs.readFileSync(path.join(__dirname, 'reference.json'), '
 ref.forEach((tc, i) => {
   const v = computeScene(tc.params).values;
   const e = tc.expected;
-  for (const key of ['approach_angle', 'trajectory_approach_angle', 'crosswalk_angle',
-                     'heading_to_crosswalk_angle', 'distance_to_path', 'distance_to_crosswalk',
-                     'prediction_length']) {
+  for (const key of ['approach_angle', 'trajectory_approach_angle', 'endpoint_approach_angle',
+                     'crosswalk_angle', 'heading_to_crosswalk_angle', 'distance_to_path',
+                     'distance_to_crosswalk', 'prediction_length']) {
     const tol = key.includes('angle') ? 0.15 : 0.02;  // buffer polygons: shapely rounds corners of the clip, we don't
     check(`config ${i} ${key}`, close(v[key], e[key], tol), `js=${v[key]} py=${e[key]}`);
   }
@@ -107,19 +107,39 @@ check('veh parked on crosswalk: on_crosswalk', vs2.vehValues.on_crosswalk === tr
 check('veh parked: no prediction', vs2.vehValues.prediction_hits_crosswalk === false && vs2.vehValues.trajectory_approach_angle === null);
 check('veh disabled: no vehValues', computeScene({ ...VBASE, vehEnabled: false }).vehValues === null);
 
-/* ---- 3. default rule against starter scenarios ---- */
-console.log('starter scenarios with bundled rule:');
+/* ---- 3. bundled rules against starter scenarios ---- */
 const starter = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'scenarios', 'starter.json'), 'utf8'));
-const starterAst = pyParse(starter.rule);
-const KNOWN_FAILING = new Set(['Loitering on crosswalk, walking along road']);  // deliberate miss of the current rule
-for (const s of starter.scenarios) {
-  const sc = computeScene(s.params);
-  const objectValues = sc.vehValues ? [sc.values, sc.vehValues] : [sc.values];
-  const blocked = objectValues.some(v => runRule(starterAst, v).result);  // rule runs per object
-  const shouldPass = !KNOWN_FAILING.has(s.name);
-  check(`starter: ${s.name}${shouldPass ? '' : ' (expected to fail)'}`,
-    (blocked === s.expected) === shouldPass, `rule returned ${blocked}, scenario expects ${s.expected}`);
+const KNOWN_FAILING = {
+  // deliberate misses of each bundled rule
+  'production rule': new Set(['Loitering on crosswalk, walking along road',
+                              'Scooter cutting the curve, prediction clips crosswalk']),
+  'endpoint-anchored rule': new Set(['Loitering on crosswalk, walking along road']),
+};
+for (const rule of starter.rules) {
+  console.log(`starter scenarios with bundled ${rule.name}:`);
+  const ast = pyParse(rule.code);
+  for (const s of starter.scenarios) {
+    const sc = computeScene(s.params);
+    const objectValues = sc.vehValues ? [sc.values, sc.vehValues] : [sc.values];
+    const blocked = objectValues.some(v => runRule(ast, v).result);  // rule runs per object
+    const shouldPass = !KNOWN_FAILING[rule.name].has(s.name);
+    check(`${rule.name}: ${s.name}${shouldPass ? '' : ' (expected to fail)'}`,
+      (blocked === s.expected) === shouldPass, `rule returned ${blocked}, scenario expects ${s.expected}`);
+  }
 }
+
+/* ---- 4. endpoint anchor vs entry-point anchor divergence (#417 signature) ---- */
+console.log('endpoint anchor:');
+const scooter = starter.scenarios.find(s => s.name.startsWith('Scooter cutting'));
+const sv = computeScene(scooter.params).values;
+check('scooter: entry-point anchor reads approaching (<60)', sv.trajectory_approach_angle < 60,
+  `got ${sv.trajectory_approach_angle}`);
+check('scooter: endpoint anchor reads not approaching (>75)', sv.endpoint_approach_angle > 75,
+  `got ${sv.endpoint_approach_angle}`);
+// straight perpendicular approach: both anchors must agree
+const perp = computeScene({ ...VBASE, vehEnabled: false });
+check('perpendicular approach: anchors agree', Math.abs(perp.values.trajectory_approach_angle - perp.values.endpoint_approach_angle) < 5,
+  `traj=${perp.values.trajectory_approach_angle} ep=${perp.values.endpoint_approach_angle}`);
 
 console.log(failures ? `\n${failures} FAILURES` : '\nall tests passed');
 process.exit(failures ? 1 : 0);

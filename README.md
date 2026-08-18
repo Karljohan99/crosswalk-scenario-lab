@@ -49,7 +49,15 @@ heading, scroll to zoom, drag the background to pan.
   crosswalk **entry point** — the nearest point of (prediction buffer ∩
   crosswalk polygon) along the trajectory. It is `None` when the prediction
   misses the crosswalk.
-- The bundled example rule blocks when the relevant angle is under 60°, or
+- The **endpoint approach angle** is the object's heading vs the direction
+  from the crosswalk **centerline endpoint nearest to the object** toward that
+  endpoint's nearest point on the ego path. Unlike the entry-point anchor, it
+  is fixed per crosswalk side — stable against prediction wiggle and against
+  the ego path curving under the crosswalk (autoware_mini branch
+  `crosswalk_centerline_endpoint_anchor`).
+- Two rules are bundled: the **production rule** (entry-point anchor) and the
+  **endpoint-anchored rule** (same thresholds, endpoint anchor in the
+  trajectory branch). Both block when the relevant angle is under 60°, or
   when the object is departing (`180 − angle < 60°`) but still within half of
   `wide_safety_box_width` of the path — so pedestrians walking parallel to the
   road, and vehicles driving along it, do not block.
@@ -71,6 +79,7 @@ object with that object's values bound.
 |---|---|
 | `approach_angle` | object heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) |
 | `trajectory_approach_angle` | same angle taken at the prediction's crosswalk entry point; `None` if the prediction misses the crosswalk |
+| `endpoint_approach_angle` | object heading vs direction from the nearest crosswalk-centerline endpoint to its nearest path point, 0–180° |
 | `crosswalk_angle` | crossing axis vs road direction, 0–90° (90 = perpendicular crosswalk) |
 | `heading_to_crosswalk_angle` | object heading vs crossing-axis direction, 0–180° |
 | `distance_to_path` | object footprint to ego path centerline (m) |

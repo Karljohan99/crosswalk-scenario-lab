@@ -5,6 +5,7 @@
 const QUANTITIES = [
   { id: 'approach_angle', desc: 'ped heading vs direction to nearest path point (deg, 0–180; 0 = straight at the path)' },
   { id: 'trajectory_approach_angle', desc: 'same angle at the predicted trajectory’s crosswalk entry point; None if prediction misses the crosswalk' },
+  { id: 'endpoint_approach_angle', desc: 'heading vs direction from the nearest crosswalk-centerline endpoint to its nearest path point (deg, 0–180)' },
   { id: 'crosswalk_angle', desc: 'crossing axis vs road direction (deg, 0–90; 90 = perpendicular crosswalk)' },
   { id: 'heading_to_crosswalk_angle', desc: 'ped heading vs crossing axis direction (deg, 0–180)' },
   { id: 'distance_to_path', desc: 'ped footprint to ego path centerline (m)' },
@@ -26,6 +27,25 @@ if on_crosswalk:
     angle = approach_angle
 elif prediction_hits_crosswalk and trajectory_approach_angle is not None:
     angle = trajectory_approach_angle
+else:
+    return False
+
+if angle < 60:
+    return True
+if 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:
+    return True
+return False`;
+
+const ENDPOINT_RULE = `# Endpoint-anchored rule (branch crosswalk_centerline_endpoint_anchor)
+# Same as the production rule, but the trajectory branch measures the
+# heading against the towards-path direction anchored at the crosswalk
+# centerline endpoint nearest to the object, instead of at the
+# trajectory's crosswalk entry point.
+
+if on_crosswalk:
+    angle = approach_angle
+elif prediction_hits_crosswalk:
+    angle = endpoint_approach_angle
 else:
     return False
 
@@ -62,12 +82,19 @@ const STARTER_SCENARIOS = [
     params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true, vehX: 30.5, vehY: 1.2, vehHeadingDeg: 0, vehSpeed: 0 } },
   { name: 'Vehicle cutting diagonally toward ego lane', expected: true,
     params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true, vehX: 35, vehY: 10, vehHeadingDeg: -135, vehSpeed: 5 } },
+  // #417 signature: fast object rides along a curving road, its straight prediction clips
+  // the crosswalk far from it and the entry-point anchor reads "approaching" (~58°);
+  // the endpoint anchor reads ~124° and clears it
+  { name: 'Scooter cutting the curve, prediction clips crosswalk', expected: false,
+    params: { ...DEFAULT_PARAMS, curvature: 0.04, cwAngleDeg: -20, pedX: 16.96, pedY: 10.98,
+              pedHeadingDeg: 30.4, speed: 8, horizon: 3.0 } },
 ];
 
 let params = { ...DEFAULT_PARAMS };
 let varNames = Object.fromEntries(QUANTITIES.map(q => [q.id, q.id]));
 let scenarios = STARTER_SCENARIOS.map(s => ({ name: s.name, expected: s.expected, params: { ...s.params } }));
-let rules = [{ name: 'production rule', code: DEFAULT_RULE }];
+let rules = [{ name: 'production rule', code: DEFAULT_RULE },
+             { name: 'endpoint-anchored rule', code: ENDPOINT_RULE }];
 let selectedRule = 0;  // the editor starts with the production rule loaded
 let selectedScenario = -1;
 let workingParams = null;  // snapshot of the unsaved working scene while a scenario is loaded
@@ -171,6 +198,7 @@ function syncControls() {
 const ANGLE_VIZ = [
   { id: 'approach_angle', color: '--ink2' },
   { id: 'trajectory_approach_angle', color: '--cw-hit' },
+  { id: 'endpoint_approach_angle', color: '--angle-ep' },
   { id: 'crosswalk_angle', color: '--angle-cw' },
   { id: 'heading_to_crosswalk_angle', color: '--angle-hcw' },
 ];
@@ -812,9 +840,11 @@ function draw() {
   const subj = useVeh
     ? { center: d.veh.center, heading: d.veh.heading, np: d.veh.np, towardPathH: d.veh.towardPathH,
         entry: d.veh.entry, entryNp: d.veh.entryNp, entryTowardPathH: d.veh.entryTowardPathH,
+        endpoint: d.veh.endpoint, endpointNp: d.veh.endpointNp, endpointTowardPathH: d.veh.endpointTowardPathH,
         clip: d.veh.clip, values: scene.vehValues }
     : { center: d.ped, heading: d.pedH, np: d.np, towardPathH: d.towardPathH,
         entry: d.entry, entryNp: d.entryNp, entryTowardPathH: d.entryTowardPathH,
+        endpoint: d.endpoint, endpointNp: d.endpointNp, endpointTowardPathH: d.endpointTowardPathH,
         clip: d.clip, values: scene.values };
 
   // crosswalk angle: road direction vs crossing axis at the crosswalk center
@@ -898,6 +928,38 @@ function draw() {
     drawAngleArc(subj.entry, subj.heading, subj.entryTowardPathH, 1.4,
       `${varNames.trajectory_approach_angle}=${subj.values.trajectory_approach_angle.toFixed(0)}°`, col,
       nearSubj ? 2.8 : 1.0);
+  }
+
+  // endpoint approach angle: subject heading vs the towards-path ray anchored at the
+  // crosswalk centerline endpoint nearest to the subject
+  if (angleViz.endpoint_approach_angle) {
+    const col = cssVar('--angle-ep');
+    for (const ep of d.cwEndpoints) {  // mark both centerline ends; the chosen anchor is filled
+      const eS = w2s(ep);
+      ctx.beginPath();
+      ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      if (ep === subj.endpoint) { ctx.fillStyle = col; ctx.fill(); }
+      ctx.stroke();
+    }
+    // leg 1: subject heading drawn at the anchor endpoint
+    const ahead = { x: subj.endpoint.x + 2.4 * Math.cos(subj.heading), y: subj.endpoint.y + 2.4 * Math.sin(subj.heading) };
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    linePath([subj.endpoint, ahead]);
+    ctx.stroke();
+    drawArrowHead(ahead, subj.heading, 7, col);
+    // leg 2: dashed ray to the endpoint's nearest point on the ego path
+    drawRay(subj.endpoint, subj.endpointTowardPathH,
+      Math.hypot(subj.endpointNp.x - subj.endpoint.x, subj.endpointNp.y - subj.endpoint.y), col, true);
+    const epnS = w2s(subj.endpointNp);
+    ctx.beginPath();
+    ctx.arc(epnS.x, epnS.y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = col;
+    ctx.fill();
+    drawAngleArc(subj.endpoint, subj.heading, subj.endpointTowardPathH, 1.6,
+      `${varNames.endpoint_approach_angle}=${subj.values.endpoint_approach_angle.toFixed(0)}°`, col);
   }
 
   // pedestrian's entry point marker (the vehicle's is drawn in its own section)

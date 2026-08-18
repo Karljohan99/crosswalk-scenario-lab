@@ -16,6 +16,7 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": 0.0,
+   "endpoint_approach_angle": 0.0,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 6.6,
@@ -42,6 +43,7 @@
   "expected": {
    "approach_angle": 13.518031015152715,
    "trajectory_approach_angle": 13.518031015152715,
+   "endpoint_approach_angle": 14.090988810284054,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 165.6225322921506,
    "distance_to_path": 6.332954733443269,
@@ -68,6 +70,7 @@
   "expected": {
    "approach_angle": 45.0,
    "trajectory_approach_angle": 45.0,
+   "endpoint_approach_angle": 45.0,
    "crosswalk_angle": 60.000000000000014,
    "heading_to_crosswalk_angle": 165.0,
    "distance_to_path": 7.6,
@@ -94,6 +97,7 @@
   "expected": {
    "approach_angle": 114.56633332109249,
    "trajectory_approach_angle": null,
+   "endpoint_approach_angle": 118.4337984382259,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 61.566201561774086,
    "distance_to_path": 8.894809683734,
@@ -120,6 +124,7 @@
   "expected": {
    "approach_angle": 180.0,
    "trajectory_approach_angle": 180.0,
+   "endpoint_approach_angle": 180.0,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 0.6,
@@ -146,6 +151,7 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": null,
+   "endpoint_approach_angle": 0.0,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 6.6,

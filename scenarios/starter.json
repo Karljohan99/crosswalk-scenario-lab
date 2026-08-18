@@ -2,8 +2,14 @@
   "version": 1,
   "rule": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False",
   "rules": [
-    { "name": "production rule",
-      "code": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False" }
+    {
+      "name": "production rule",
+      "code": "# Current production rule (collision_checker.py: _crosswalk_is_approaching_or_departing)\n# The real checker applies it to approach_angle when the ped is ON the\n# crosswalk, and to trajectory_approach_angle when only its prediction\n# crosses it.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk and trajectory_approach_angle is not None:\n    angle = trajectory_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False"
+    },
+    {
+      "name": "endpoint-anchored rule",
+      "code": "# Endpoint-anchored rule (branch crosswalk_centerline_endpoint_anchor)\n# Same as the production rule, but the trajectory branch measures the\n# heading against the towards-path direction anchored at the crosswalk\n# centerline endpoint nearest to the object, instead of at the\n# trajectory's crosswalk entry point.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk:\n    angle = endpoint_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False"
+    }
   ],
   "variable_names": {
     "approach_angle": "approach_angle",
@@ -16,28 +22,216 @@
     "prediction_hits_crosswalk": "prediction_hits_crosswalk",
     "prediction_length": "prediction_length",
     "speed": "speed",
-    "wide_safety_box_width": "wide_safety_box_width"
+    "wide_safety_box_width": "wide_safety_box_width",
+    "endpoint_approach_angle": "endpoint_approach_angle"
   },
   "scenarios": [
-    { "name": "Approaching, straight road", "expected": true,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 8.5, "pedHeadingDeg": -90, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Walking parallel on sidewalk", "expected": false,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 8.5, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Departed, far side, walking away", "expected": false,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": -6, "pedHeadingDeg": -90, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Departing but still on the road", "expected": true,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": -1, "pedHeadingDeg": -90, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Approaching on curved road", "expected": true,
-      "params": { "curvature": 0.02, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 23.43, "pedY": 15.75, "pedHeadingDeg": -55.6, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Cutting diagonally over angled crosswalk", "expected": true,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 30, "cwLen": 12, "cwWid": 4, "pedX": 26.25, "pedY": 8.25, "pedHeadingDeg": -60, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Loitering on crosswalk, walking along road", "expected": true,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 1.5, "pedHeadingDeg": 0, "speed": 1.0, "horizon": 3.0, "wideBox": 3.1 } },
-    { "name": "Vehicle driving through, ped on sidewalk", "expected": false,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 8.5, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1, "vehEnabled": true, "vehX": 50, "vehY": 3.5, "vehHeadingDeg": 180, "vehSpeed": 8 } },
-    { "name": "Vehicle parked on crosswalk", "expected": false,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 8.5, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1, "vehEnabled": true, "vehX": 30.5, "vehY": 1.2, "vehHeadingDeg": 0, "vehSpeed": 0 } },
-    { "name": "Vehicle cutting diagonally toward ego lane", "expected": true,
-      "params": { "curvature": 0, "cwDist": 30, "cwAngleDeg": 0, "cwLen": 12, "cwWid": 4, "pedX": 30, "pedY": 8.5, "pedHeadingDeg": 0, "speed": 1.4, "horizon": 3.0, "wideBox": 3.1, "vehEnabled": true, "vehX": 35, "vehY": 10, "vehHeadingDeg": -135, "vehSpeed": 5 } }
+    {
+      "name": "Approaching, straight road",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": -90,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Walking parallel on sidewalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Departed, far side, walking away",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": -6,
+        "pedHeadingDeg": -90,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Departing but still on the road",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": -1,
+        "pedHeadingDeg": -90,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Approaching on curved road",
+      "expected": true,
+      "params": {
+        "curvature": 0.02,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 23.43,
+        "pedY": 15.75,
+        "pedHeadingDeg": -55.6,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Cutting diagonally over angled crosswalk",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 30,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 26.25,
+        "pedY": 8.25,
+        "pedHeadingDeg": -60,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Loitering on crosswalk, walking along road",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 1.5,
+        "pedHeadingDeg": 0,
+        "speed": 1,
+        "horizon": 3,
+        "wideBox": 3.1
+      }
+    },
+    {
+      "name": "Vehicle driving through, ped on sidewalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Vehicle parked on crosswalk",
+      "expected": false,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 30.5,
+        "vehY": 1.2,
+        "vehHeadingDeg": 0,
+        "vehSpeed": 0
+      }
+    },
+    {
+      "name": "Vehicle cutting diagonally toward ego lane",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 0,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 30,
+        "pedY": 8.5,
+        "pedHeadingDeg": 0,
+        "speed": 1.4,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": true,
+        "vehX": 35,
+        "vehY": 10,
+        "vehHeadingDeg": -135,
+        "vehSpeed": 5
+      }
+    },
+    {
+      "name": "Scooter cutting the curve, prediction clips crosswalk",
+      "expected": false,
+      "params": {
+        "curvature": 0.04,
+        "cwDist": 30,
+        "cwAngleDeg": -20,
+        "cwLen": 12,
+        "cwWid": 4,
+        "pedX": 16.96,
+        "pedY": 10.98,
+        "pedHeadingDeg": 30.4,
+        "speed": 8,
+        "horizon": 3,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    }
   ]
 }

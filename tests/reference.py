@@ -91,9 +91,19 @@ def compute(p):
     if cw_angle > 90:
         cw_angle = 180 - cw_angle
 
+    # endpoint approach angle: heading vs towards-path direction anchored at the crosswalk
+    # centerline endpoint nearest to the object (branch crosswalk_centerline_endpoint_anchor)
+    endpoints = [shapely.Point(cwx + math.cos(axis_h) * p['cwLen'] / 2, cwy + math.sin(axis_h) * p['cwLen'] / 2),
+                 shapely.Point(cwx - math.cos(axis_h) * p['cwLen'] / 2, cwy - math.sin(axis_h) * p['cwLen'] / 2)]
+    endpoint = min(endpoints, key=ped.distance)
+    ep_np = path_ls.interpolate(path_ls.project(endpoint))
+    ep_toward_h = math.atan2(ep_np.y - endpoint.y, ep_np.x - endpoint.x)
+    endpoint_angle = math.degrees(get_angle_between_two_headings(ped_h, ep_toward_h))
+
     return {
         'approach_angle': approach,
         'trajectory_approach_angle': traj_angle,
+        'endpoint_approach_angle': endpoint_angle,
         'crosswalk_angle': cw_angle,
         'heading_to_crosswalk_angle': math.degrees(get_angle_between_two_headings(ped_h, axis_h)),
         'distance_to_path': dist_path,

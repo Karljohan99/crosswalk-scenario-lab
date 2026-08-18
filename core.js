@@ -7,6 +7,8 @@
  *  - trajectory buffer half-width = dimensions.y / 2                                            [collision.py:175]
  *  - trajectory approach angle taken at the nearest point of (buffer ∩ crosswalk) along the trajectory
  *    [collision_checker.py:806-817]
+ *  - endpoint approach angle: heading vs the towards-path heading anchored at the crosswalk
+ *    centerline endpoint nearest to the object [branch crosswalk_centerline_endpoint_anchor]
  */
 
 const PED_RADIUS = 0.4;   // pedestrian footprint radius = dimensions/2 (0.8 m square-ish person)
@@ -187,6 +189,18 @@ function computePrediction(pathPts, cwPoly, p0, heading, predLen, halfWidth) {
   return out;
 }
 
+// towards-path heading anchored at the crosswalk centerline endpoint nearest to the object,
+// and the angle between the object's (trajectory) heading and that anchor
+// [branch crosswalk_centerline_endpoint_anchor]
+function endpointAnchor(pathPts, cwEndpoints, c, heading) {
+  const near = Math.hypot(c.x - cwEndpoints[0].x, c.y - cwEndpoints[0].y) <=
+               Math.hypot(c.x - cwEndpoints[1].x, c.y - cwEndpoints[1].y) ? cwEndpoints[0] : cwEndpoints[1];
+  const np = nearestOnPolyline(pathPts, near);
+  const towardPathH = Math.atan2(np.y - near.y, np.x - near.x);
+  return { endpoint: near, endpointNp: np, endpointTowardPathH: towardPathH,
+           angle: angDiffDeg(heading, towardPathH) };
+}
+
 /* compute all quantities + drawing geometry for a scene parameter set */
 function computeScene(p) {
   const pathPts = samplePath(p.curvature);
@@ -197,6 +211,11 @@ function computeScene(p) {
   const cwCenter = { x: cwPose.x - Math.sin(cwPose.h) * LANE_WIDTH / 2,
                      y: cwPose.y + Math.cos(cwPose.h) * LANE_WIDTH / 2 };
   const cwPoly = ensureCCW(rectPoly(cwCenter, axisH, p.cwLen, p.cwWid));
+  // centerline endpoints = the two ends of the crossing axis (lanelet.centerline[0] / [-1])
+  const cwEndpoints = [
+    { x: cwCenter.x + Math.cos(axisH) * p.cwLen / 2, y: cwCenter.y + Math.sin(axisH) * p.cwLen / 2 },
+    { x: cwCenter.x - Math.cos(axisH) * p.cwLen / 2, y: cwCenter.y - Math.sin(axisH) * p.cwLen / 2 },
+  ];
 
   const ped = { x: p.pedX, y: p.pedY };
   const pedH = rad(p.pedHeadingDeg);
@@ -213,6 +232,7 @@ function computeScene(p) {
   const predLen = p.speed * p.horizon;
   const pedFront = { x: ped.x + Math.cos(pedH) * PED_RADIUS, y: ped.y + Math.sin(pedH) * PED_RADIUS };  // trajectory starts at object front
   const pred = computePrediction(pathPts, cwPoly, pedFront, pedH, predLen, PED_RADIUS);
+  const pedAnchor = endpointAnchor(pathPts, cwEndpoints, ped, pedH);
 
   let cwAngle = angDiffDeg(axisH, cwPose.h);
   if (cwAngle > 90) cwAngle = 180 - cwAngle;                   // axis is undirected vs road: fold to 0-90
@@ -228,10 +248,12 @@ function computeScene(p) {
     const vehPredLen = p.vehSpeed * p.horizon;
     const front = { x: c.x + Math.cos(h) * VEH_LENGTH / 2, y: c.y + Math.sin(h) * VEH_LENGTH / 2 };
     const vehPred = computePrediction(pathPts, cwPoly, front, h, vehPredLen, VEH_WIDTH / 2);
+    const vehAnchor = endpointAnchor(pathPts, cwEndpoints, c, h);
     const dCw = distPolyToPoly(poly, cwPoly);
     vehValues = {
       approach_angle: angDiffDeg(h, vehTowardH),
       trajectory_approach_angle: vehPred.trajAngle,
+      endpoint_approach_angle: vehAnchor.angle,
       crosswalk_angle: cwAngle,
       heading_to_crosswalk_angle: angDiffDeg(h, axisH),
       distance_to_path: distPolyToPolyline(poly, pathPts),
@@ -243,13 +265,14 @@ function computeScene(p) {
       wide_safety_box_width: p.wideBox,
       is_pedestrian: false,
     };
-    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred };
+    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred, ...vehAnchor };
   }
 
   return {
     values: {
       approach_angle: approachAngle,
       trajectory_approach_angle: pred.trajAngle,               // null (None) when prediction misses the crosswalk
+      endpoint_approach_angle: pedAnchor.angle,
       crosswalk_angle: cwAngle,
       heading_to_crosswalk_angle: angDiffDeg(pedH, axisH),
       distance_to_path: distToPath,
@@ -262,9 +285,11 @@ function computeScene(p) {
       is_pedestrian: true,
     },
     vehValues,
-    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, ped, pedH, np, towardPathH,
+    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, cwEndpoints, ped, pedH, np, towardPathH,
             predSeg: pred.predSeg, buffer: pred.buffer, clip: pred.clip,
             entry: pred.entry, entryNp: pred.entryNp, entryTowardPathH: pred.entryTowardPathH,
+            endpoint: pedAnchor.endpoint, endpointNp: pedAnchor.endpointNp,
+            endpointTowardPathH: pedAnchor.endpointTowardPathH,
             veh },
   };
 }
