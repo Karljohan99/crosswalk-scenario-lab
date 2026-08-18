@@ -33,7 +33,9 @@ network access needed (plain scripts, so `file://` works).
   many scenarios it decides correctly, so candidate rules can be ranked at a
   glance.
 - **Export / Import** serializes scenarios + rules + variable names as JSON,
-  via text box or file (`scenarios/starter.json` is such a file).
+  via text box or file. The bundled rules and starter scenarios load
+  automatically at startup from `scenarios/starter.js` (a JS file rather than
+  JSON so opening via `file://` works too).
 
 Drag the pedestrian or vehicle to move it, drag the arrow tip to rotate its
 heading, scroll to zoom, drag the background to pan.
@@ -66,12 +68,20 @@ heading, scroll to zoom, drag the background to pan.
   certificate, even where road curvature makes it transversal at the
   conflict point. No anchor points or side selection to get wrong on long,
   skewed, or asymmetrically mapped crosswalks.
-- Two rules are bundled: the **production rule** (entry-point anchored
+- The **axis-pick anchor** (autoware_mini branch `crosswalk_axis_pick_anchor`)
+  keeps the production rule's single approach angle and thresholds but anchors
+  the towards-path reference at a fixed point instead of the prediction's entry
+  point: of the crossing end on the object's side (side split where the path
+  crosses the crossing), it picks the anchor — centerline endpoint or boundary
+  corner — whose towards-path direction is closest to the crossing axis, the
+  least-distorted projection onto the local path.
+- Three rules are bundled: the **production rule** (entry-point anchored
   approach angle, blocking under 60° or departing within half of
-  `wide_safety_box_width` of the path) and the **combined-gate rule**
+  `wide_safety_box_width` of the path), the **combined-gate rule**
   (`path_crossing_angle > 30°` and (axis alignment `< 60°` or
   `local_crossing_angle > 30°`) and toward — or departing but still within
-  the wide box).
+  the wide box), and the **axis-pick anchor rule** (production thresholds
+  applied to `anchor_approach_angle`).
 
 Not modeled: temporal filtering (the tool evaluates a single frame) and ego
 motion / braking dynamics — the tool answers *should this crosswalk be treated
@@ -90,6 +100,7 @@ object with that object's values bound.
 |---|---|
 | `approach_angle` | object heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) |
 | `trajectory_approach_angle` | same angle taken at the prediction's crosswalk entry point; `None` if the prediction misses the crosswalk |
+| `anchor_approach_angle` | object heading vs the towards-path direction of the axis-pick anchor on the object's side of the crossing, 0–180°; `None` if the path misses the crosswalk |
 | `path_crossing_angle` | object heading vs ego-path tangent at the conflict point (where the path passes through the crosswalk), 0–90°; `None` if the path misses the crosswalk |
 | `local_crossing_angle` | object heading vs ego-path tangent at the object's own nearest path point, 0–90° (0 = moving along the road where it currently is) |
 | `moving_toward_conflict` | object heading within 90° of the direction from the prediction's crosswalk entry to the conflict point (bool); `None` without a conflict point or crosswalk entry |
@@ -121,7 +132,7 @@ pure decision function.
 | `style.css` | styling, light/dark theme tokens |
 | `core.js` | pure logic, no DOM: scene geometry + the mini-Python interpreter |
 | `ui.js` | controls, canvas rendering, scenarios, export/import |
-| `scenarios/starter.json` | bundled starter scenarios (importable via the UI) |
+| `scenarios/starter.js` | bundled rules + starter scenarios, loaded at startup (and by the tests) |
 | `tests/` | test suite for `core.js` (see below) |
 
 ## Tests

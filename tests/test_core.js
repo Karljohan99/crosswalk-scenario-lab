@@ -27,9 +27,10 @@ const ref = JSON.parse(fs.readFileSync(path.join(__dirname, 'reference.json'), '
 ref.forEach((tc, i) => {
   const v = computeScene(tc.params).values;
   const e = tc.expected;
-  for (const key of ['approach_angle', 'trajectory_approach_angle', 'path_crossing_angle',
-                     'local_crossing_angle', 'crosswalk_angle', 'heading_to_crosswalk_angle',
-                     'distance_to_path', 'distance_to_crosswalk', 'prediction_length']) {
+  for (const key of ['approach_angle', 'trajectory_approach_angle', 'anchor_approach_angle',
+                     'path_crossing_angle', 'local_crossing_angle', 'crosswalk_angle',
+                     'heading_to_crosswalk_angle', 'distance_to_path', 'distance_to_crosswalk',
+                     'prediction_length']) {
     const tol = key.includes('angle') ? 0.15 : 0.02;  // buffer polygons: shapely rounds corners of the clip, we don't
     check(`config ${i} ${key}`, close(v[key], e[key], tol), `js=${v[key]} py=${e[key]}`);
   }
@@ -108,12 +109,25 @@ check('veh parked: no prediction', vs2.vehValues.prediction_hits_crosswalk === f
 check('veh disabled: no vehValues', computeScene({ ...VBASE, vehEnabled: false }).vehValues === null);
 
 /* ---- 3. bundled rules against starter scenarios ---- */
-const starter = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'scenarios', 'starter.json'), 'utf8'));
+const starterSrc = fs.readFileSync(path.join(__dirname, '..', 'scenarios', 'starter.js'), 'utf8');
+const { STARTER, DEFAULT_PARAMS } = eval(starterSrc + '\n;({ STARTER, DEFAULT_PARAMS })');
+const starter = { ...STARTER, scenarios: STARTER.scenarios.map(s =>
+  ({ ...s, params: { ...DEFAULT_PARAMS, ...s.params } })) };  // params are overrides, like the UI applies them
 const KNOWN_FAILING = {
-  // deliberate misses of each bundled rule
+  // deliberate misses of each bundled rule; 'Skewed crosswalk, pedestrian on road' is a
+  // shallow crossing (~25 deg to the road, every reference angle reads 65) — the image-5
+  // family no current variant catches
   'production rule': new Set(['Loitering on crosswalk, walking along road',
-                              'Scooter cutting the curve, prediction clips crosswalk']),
-  'combined-gate rule': new Set(['Loitering on crosswalk, walking along road']),
+                              'Scooter cutting the curve, prediction clips crosswalk',
+                              'Tight curve, pedestrian almost aligned with road',
+                              'Skewed crosswalk, pedestrian on road']),
+  'combined-gate rule': new Set(['Loitering on crosswalk, walking along road',
+                                 'Skewed crosswalk, pedestrian on road']),
+  // axis-pick shares the production on-crosswalk branch (loitering miss) and re-blocks the
+  // scooter — the known trade-off this variant accepts pending real-bag A/B testing
+  'axis-pick anchor rule': new Set(['Loitering on crosswalk, walking along road',
+                                    'Scooter cutting the curve, prediction clips crosswalk',
+                                    'Skewed crosswalk, pedestrian on road']),
 };
 for (const rule of starter.rules) {
   console.log(`starter scenarios with bundled ${rule.name}:`);
@@ -141,6 +155,8 @@ check('scooter: misaligned with crossing axis (>60) — no axis certificate',
   `got ${sv.heading_to_crosswalk_angle}`);
 check('scooter: locally road-parallel (<30) — no local certificate either', sv.local_crossing_angle < 30,
   `got ${sv.local_crossing_angle}`);
+check('scooter: axis-pick anchor also reads approaching (<60) — re-blocks', sv.anchor_approach_angle < 60,
+  `got ${sv.anchor_approach_angle}`);
 const skew = starter.scenarios.find(s => s.name.startsWith('Perpendicular crosser'));
 const kv = computeScene(skew.params).values;
 check('skewed crosswalk: >60 off the axis (old gate missed it)',

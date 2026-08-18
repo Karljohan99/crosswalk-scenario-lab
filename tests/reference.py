@@ -105,6 +105,29 @@ def compute(p):
             toward_h = math.atan2(conflict_y - entry.y, conflict_x - entry.x)
             toward = math.degrees(get_angle_between_two_headings(ped_h, toward_h)) < 90
 
+    # axis-pick anchor (branch crosswalk_axis_pick_anchor): towards-path heading of the
+    # anchor (crossing endpoint + boundary corners) at the crossing end on the object's
+    # side (side split at the conflict point) whose direction is closest to the crossing axis
+    anchor_angle = None
+    if inside:
+        ax, ay = math.cos(axis_h), math.sin(axis_h)
+        nx, ny = -ay, ax
+        endpoints = [(cwx + ax * p['cwLen'] / 2, cwy + ay * p['cwLen'] / 2),
+                     (cwx - ax * p['cwLen'] / 2, cwy - ay * p['cwLen'] / 2)]
+        toward_obj_h = math.atan2(ped.y - conflict_y, ped.x - conflict_x)
+        side = 0 if math.degrees(get_angle_between_two_headings(toward_obj_h, axis_h)) < 90 else 1
+        ex, ey = endpoints[side]
+        anchors = [(ex, ey),
+                   (ex + nx * p['cwWid'] / 2, ey + ny * p['cwWid'] / 2),
+                   (ex - nx * p['cwWid'] / 2, ey - ny * p['cwWid'] / 2)]
+        headings = []
+        for x, y in anchors:
+            np_a = path_ls.interpolate(path_ls.project(shapely.Point(x, y)))
+            headings.append(math.atan2(np_a.y - y, np_a.x - x))
+        devs = np.degrees(get_angle_between_two_headings(np.array(headings), axis_h))
+        devs = np.minimum(devs, 180 - devs)
+        anchor_angle = math.degrees(get_angle_between_two_headings(ped_h, headings[np.argmin(devs)]))
+
     # local crossing angle: heading vs path tangent at the object's nearest path sample
     # (same quantization as core.js localPathTangent)
     local_th = min(pts, key=lambda pt: (pt[0] - ped.x) ** 2 + (pt[1] - ped.y) ** 2)[2]
@@ -114,6 +137,7 @@ def compute(p):
     return {
         'approach_angle': approach,
         'trajectory_approach_angle': traj_angle,
+        'anchor_approach_angle': anchor_angle,
         'path_crossing_angle': crossing_angle,
         'local_crossing_angle': local_crossing_angle,
         'moving_toward_conflict': toward,

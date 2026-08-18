@@ -17,6 +17,7 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": 0.0,
+   "anchor_approach_angle": 0.0,
    "path_crossing_angle": 90.0,
    "local_crossing_angle": 90.0,
    "moving_toward_conflict": true,
@@ -47,6 +48,7 @@
   "expected": {
    "approach_angle": 13.518031015152715,
    "trajectory_approach_angle": 13.518031015152715,
+   "anchor_approach_angle": 14.090988810284054,
    "path_crossing_angle": 75.62253229215061,
    "local_crossing_angle": 76.19549008728144,
    "moving_toward_conflict": true,
@@ -77,6 +79,7 @@
   "expected": {
    "approach_angle": 45.0,
    "trajectory_approach_angle": 45.0,
+   "anchor_approach_angle": 45.0,
    "path_crossing_angle": 45.0,
    "local_crossing_angle": 45.0,
    "moving_toward_conflict": true,
@@ -107,6 +110,7 @@
   "expected": {
    "approach_angle": 114.56633332109249,
    "trajectory_approach_angle": null,
+   "anchor_approach_angle": 118.4337984382259,
    "path_crossing_angle": 28.433798438225892,
    "local_crossing_angle": 24.99605166744098,
    "moving_toward_conflict": null,
@@ -137,6 +141,7 @@
   "expected": {
    "approach_angle": 180.0,
    "trajectory_approach_angle": 180.0,
+   "anchor_approach_angle": 180.0,
    "path_crossing_angle": 90.0,
    "local_crossing_angle": 90.0,
    "moving_toward_conflict": false,
@@ -167,6 +172,7 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": null,
+   "anchor_approach_angle": 0.0,
    "path_crossing_angle": 90.0,
    "local_crossing_angle": 90.0,
    "moving_toward_conflict": null,
@@ -197,6 +203,7 @@
   "expected": {
    "approach_angle": 47.685766559500394,
    "trajectory_approach_angle": 50.39021551102591,
+   "anchor_approach_angle": 48.94819895024728,
    "path_crossing_angle": 34.43606375745054,
    "local_crossing_angle": 41.59803619658584,
    "moving_toward_conflict": true,
@@ -227,6 +234,7 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": null,
+   "anchor_approach_angle": null,
    "path_crossing_angle": null,
    "local_crossing_angle": 90.0,
    "moving_toward_conflict": null,
@@ -257,6 +265,7 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": 0.0,
+   "anchor_approach_angle": 0.0,
    "path_crossing_angle": 90.0,
    "local_crossing_angle": 90.0,
    "moving_toward_conflict": true,

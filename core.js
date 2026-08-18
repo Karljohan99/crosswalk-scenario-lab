@@ -12,6 +12,10 @@
  *    the crosswalk), folded to 0-90; local_crossing_angle = the same vs the path tangent at
  *    the object's own nearest path sample; moving_toward_conflict = heading within 90 deg of
  *    the chord from the prediction's crosswalk entry to the conflict point
+ *  - axis-pick anchor [branch crosswalk_axis_pick_anchor]: anchor_approach_angle = heading
+ *    vs the towards-path heading of the anchor at the crossing end on the object's side
+ *    (side split where the path crosses the crossing) whose direction is closest to the
+ *    crossing axis — the least-distorted projection onto the local path
  */
 
 const PED_RADIUS = 0.4;   // pedestrian footprint radius = dimensions/2 (0.8 m square-ish person)
@@ -225,6 +229,23 @@ function crossingGate(conflict, heading, entry) {
   return { crossingAngle, toward: angDiffDeg(heading, towardH) < 90, towardH };
 }
 
+// axis-pick anchor [branch crosswalk_axis_pick_anchor]: reference for the trajectory check =
+// towards-path heading of the anchor at the crossing end on the object's side (side split
+// where the ego path crosses the crossing) whose direction is closest to the crossing axis
+function axisPickAnchor(pathPts, cwAnchors, axisH, conflict, c, heading) {
+  if (!conflict) return { angle: null };
+  const towardObjH = Math.atan2(c.y - conflict.point.y, c.x - conflict.point.x);
+  const side = angDiffDeg(towardObjH, axisH) < 90 ? 0 : 1;
+  const anchors = cwAnchors[side].map(a => {
+    const np = nearestOnPolyline(pathPts, a);
+    const towardPathH = Math.atan2(np.y - a.y, np.x - a.x);
+    const dev = angDiffDeg(towardPathH, axisH);
+    return { point: a, np, towardPathH, axisDev: Math.min(dev, 180 - dev) };
+  });
+  const winner = anchors.reduce((w, a) => (a.axisDev < w.axisDev ? a : w));
+  return { side, anchors, winner, angle: angDiffDeg(heading, winner.towardPathH) };
+}
+
 /* compute all quantities + drawing geometry for a scene parameter set */
 function computeScene(p) {
   const pathPts = samplePath(p.curvature);
@@ -238,6 +259,17 @@ function computeScene(p) {
                      y: cwPose.y + Math.cos(cwPose.h) * LANE_WIDTH / 2 + Math.sin(axisH) * cwOffset };
   const cwPoly = ensureCCW(rectPoly(cwCenter, axisH, p.cwLen, p.cwWid));
   const conflict = pathConflict(pathPts, cwPoly);
+  // centerline endpoints = the two ends of the crossing axis (lanelet.centerline[0] / [-1]);
+  // per-side anchors = the endpoint plus the two boundary corners on that side
+  const cwEndpoints = [
+    { x: cwCenter.x + Math.cos(axisH) * p.cwLen / 2, y: cwCenter.y + Math.sin(axisH) * p.cwLen / 2 },
+    { x: cwCenter.x - Math.cos(axisH) * p.cwLen / 2, y: cwCenter.y - Math.sin(axisH) * p.cwLen / 2 },
+  ];
+  const cwNormal = { x: -Math.sin(axisH), y: Math.cos(axisH) };  // across the crossing axis (along the road)
+  const cwAnchors = cwEndpoints.map(e => [e,
+    { x: e.x + cwNormal.x * p.cwWid / 2, y: e.y + cwNormal.y * p.cwWid / 2 },
+    { x: e.x - cwNormal.x * p.cwWid / 2, y: e.y - cwNormal.y * p.cwWid / 2 },
+  ]);
 
   const ped = { x: p.pedX, y: p.pedY };
   const pedH = rad(p.pedHeadingDeg);
@@ -255,6 +287,7 @@ function computeScene(p) {
   const pedFront = { x: ped.x + Math.cos(pedH) * PED_RADIUS, y: ped.y + Math.sin(pedH) * PED_RADIUS };  // trajectory starts at object front
   const pred = computePrediction(pathPts, cwPoly, pedFront, pedH, predLen, PED_RADIUS);
   const pedGate = crossingGate(conflict, pedH, pred.entry);
+  const pedAnchor = axisPickAnchor(pathPts, cwAnchors, axisH, conflict, ped, pedH);
   const pedLocalTangentH = localPathTangent(pathPts, ped);
   const pedLocalAngle = angDiffDeg(pedH, pedLocalTangentH);
 
@@ -273,12 +306,14 @@ function computeScene(p) {
     const front = { x: c.x + Math.cos(h) * VEH_LENGTH / 2, y: c.y + Math.sin(h) * VEH_LENGTH / 2 };
     const vehPred = computePrediction(pathPts, cwPoly, front, h, vehPredLen, VEH_WIDTH / 2);
     const vehGate = crossingGate(conflict, h, vehPred.entry);
+    const vehAnchor = axisPickAnchor(pathPts, cwAnchors, axisH, conflict, c, h);
     const vehLocalTangentH = localPathTangent(pathPts, c);
     const vehLocalAngle = angDiffDeg(h, vehLocalTangentH);
     const dCw = distPolyToPoly(poly, cwPoly);
     vehValues = {
       approach_angle: angDiffDeg(h, vehTowardH),
       trajectory_approach_angle: vehPred.trajAngle,
+      anchor_approach_angle: vehAnchor.angle,
       path_crossing_angle: vehGate.crossingAngle,
       local_crossing_angle: Math.min(vehLocalAngle, 180 - vehLocalAngle),
       moving_toward_conflict: vehGate.toward,
@@ -294,13 +329,14 @@ function computeScene(p) {
       is_pedestrian: false,
     };
     veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred, gate: vehGate,
-            localTangentH: vehLocalTangentH };
+            anchor: vehAnchor, localTangentH: vehLocalTangentH };
   }
 
   return {
     values: {
       approach_angle: approachAngle,
       trajectory_approach_angle: pred.trajAngle,               // null (None) when prediction misses the crosswalk
+      anchor_approach_angle: pedAnchor.angle,                  // null (None) when the path misses the crosswalk
       path_crossing_angle: pedGate.crossingAngle,              // null (None) when the path misses the crosswalk
       local_crossing_angle: Math.min(pedLocalAngle, 180 - pedLocalAngle),
       moving_toward_conflict: pedGate.toward,                  // null (None) without a conflict point or crosswalk entry
@@ -316,10 +352,10 @@ function computeScene(p) {
       is_pedestrian: true,
     },
     vehValues,
-    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, conflict, ped, pedH, np, towardPathH,
+    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, conflict, cwEndpoints, ped, pedH, np, towardPathH,
             predSeg: pred.predSeg, buffer: pred.buffer, clip: pred.clip,
             entry: pred.entry, entryNp: pred.entryNp, entryTowardPathH: pred.entryTowardPathH,
-            gate: pedGate, localTangentH: pedLocalTangentH,
+            gate: pedGate, anchor: pedAnchor, localTangentH: pedLocalTangentH,
             veh },
   };
 }
