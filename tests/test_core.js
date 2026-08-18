@@ -27,13 +27,13 @@ const ref = JSON.parse(fs.readFileSync(path.join(__dirname, 'reference.json'), '
 ref.forEach((tc, i) => {
   const v = computeScene(tc.params).values;
   const e = tc.expected;
-  for (const key of ['approach_angle', 'trajectory_approach_angle', 'endpoint_approach_angle',
+  for (const key of ['approach_angle', 'trajectory_approach_angle', 'path_crossing_angle',
                      'crosswalk_angle', 'heading_to_crosswalk_angle', 'distance_to_path',
                      'distance_to_crosswalk', 'prediction_length']) {
     const tol = key.includes('angle') ? 0.15 : 0.02;  // buffer polygons: shapely rounds corners of the clip, we don't
     check(`config ${i} ${key}`, close(v[key], e[key], tol), `js=${v[key]} py=${e[key]}`);
   }
-  for (const key of ['on_crosswalk', 'prediction_hits_crosswalk']) {
+  for (const key of ['on_crosswalk', 'prediction_hits_crosswalk', 'moving_toward_conflict']) {
     check(`config ${i} ${key}`, v[key] === e[key], `js=${v[key]} py=${e[key]}`);
   }
 });
@@ -113,7 +113,7 @@ const KNOWN_FAILING = {
   // deliberate misses of each bundled rule
   'production rule': new Set(['Loitering on crosswalk, walking along road',
                               'Scooter cutting the curve, prediction clips crosswalk']),
-  'endpoint-anchored rule': new Set(['Loitering on crosswalk, walking along road']),
+  'combined-gate rule': new Set(['Loitering on crosswalk, walking along road']),
 };
 for (const rule of starter.rules) {
   console.log(`starter scenarios with bundled ${rule.name}:`);
@@ -128,18 +128,29 @@ for (const rule of starter.rules) {
   }
 }
 
-/* ---- 4. endpoint anchor vs entry-point anchor divergence (#417 signature) ---- */
-console.log('endpoint anchor:');
+/* ---- 4. crossing-gate quantities on the key scenarios ---- */
+console.log('crossing gate:');
 const scooter = starter.scenarios.find(s => s.name.startsWith('Scooter cutting'));
 const sv = computeScene(scooter.params).values;
 check('scooter: entry-point anchor reads approaching (<60)', sv.trajectory_approach_angle < 60,
   `got ${sv.trajectory_approach_angle}`);
-check('scooter: endpoint anchor reads not approaching (>75)', sv.endpoint_approach_angle > 75,
-  `got ${sv.endpoint_approach_angle}`);
-// straight perpendicular approach: both anchors must agree
+check('scooter: transversal to the curving path (>30)', sv.path_crossing_angle > 30,
+  `got ${sv.path_crossing_angle}`);
+check('scooter: misaligned with crossing axis (>60) — gate clears it',
+  Math.min(sv.heading_to_crosswalk_angle, 180 - sv.heading_to_crosswalk_angle) > 60,
+  `got ${sv.heading_to_crosswalk_angle}`);
+const diag = starter.scenarios.find(s => s.name.startsWith('Diagonal crosser'));
+const dv = computeScene(diag.params).values;
+check('diagonal crosser: transversal (>30), aligned (<60), toward — gate blocks',
+  dv.path_crossing_angle > 30 &&
+  Math.min(dv.heading_to_crosswalk_angle, 180 - dv.heading_to_crosswalk_angle) < 60 &&
+  dv.moving_toward_conflict === true,
+  `crossing=${dv.path_crossing_angle} axis=${dv.heading_to_crosswalk_angle} toward=${dv.moving_toward_conflict}`);
+// straight perpendicular approach: crossing angle ~90, moving toward the conflict point
 const perp = computeScene({ ...VBASE, vehEnabled: false });
-check('perpendicular approach: anchors agree', Math.abs(perp.values.trajectory_approach_angle - perp.values.endpoint_approach_angle) < 5,
-  `traj=${perp.values.trajectory_approach_angle} ep=${perp.values.endpoint_approach_angle}`);
+check('perpendicular approach: crossing angle ~90 and toward',
+  Math.abs(perp.values.path_crossing_angle - 90) < 1 && perp.values.moving_toward_conflict === true,
+  `crossing=${perp.values.path_crossing_angle} toward=${perp.values.moving_toward_conflict}`);
 
 console.log(failures ? `\n${failures} FAILURES` : '\nall tests passed');
 process.exit(failures ? 1 : 0);

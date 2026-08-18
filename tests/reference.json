@@ -6,6 +6,7 @@
    "cwAngleDeg": 0,
    "cwLen": 12,
    "cwWid": 4,
+   "cwOffset": 0,
    "pedX": 30,
    "pedY": 7,
    "pedHeadingDeg": -90,
@@ -16,7 +17,8 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": 0.0,
-   "endpoint_approach_angle": 0.0,
+   "path_crossing_angle": 90.0,
+   "moving_toward_conflict": true,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 6.6,
@@ -33,6 +35,7 @@
    "cwAngleDeg": 0,
    "cwLen": 12,
    "cwWid": 4,
+   "cwOffset": 0,
    "pedX": 24,
    "pedY": 14,
    "pedHeadingDeg": -70,
@@ -43,7 +46,8 @@
   "expected": {
    "approach_angle": 13.518031015152715,
    "trajectory_approach_angle": 13.518031015152715,
-   "endpoint_approach_angle": 16.955777785938338,
+   "path_crossing_angle": 75.62253229215061,
+   "moving_toward_conflict": true,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 165.6225322921506,
    "distance_to_path": 6.332954733443269,
@@ -60,6 +64,7 @@
    "cwAngleDeg": 30,
    "cwLen": 12,
    "cwWid": 4,
+   "cwOffset": 0,
    "pedX": 25,
    "pedY": 8,
    "pedHeadingDeg": -45,
@@ -70,7 +75,8 @@
   "expected": {
    "approach_angle": 45.0,
    "trajectory_approach_angle": 45.0,
-   "endpoint_approach_angle": 45.0,
+   "path_crossing_angle": 45.0,
+   "moving_toward_conflict": true,
    "crosswalk_angle": 60.000000000000014,
    "heading_to_crosswalk_angle": 165.0,
    "distance_to_path": 7.6,
@@ -87,6 +93,7 @@
    "cwAngleDeg": 0,
    "cwLen": 12,
    "cwWid": 4,
+   "cwOffset": 0,
    "pedX": 35,
    "pedY": -9,
    "pedHeadingDeg": 100,
@@ -97,7 +104,8 @@
   "expected": {
    "approach_angle": 114.56633332109249,
    "trajectory_approach_angle": null,
-   "endpoint_approach_angle": 121.44182686266274,
+   "path_crossing_angle": 28.433798438225892,
+   "moving_toward_conflict": null,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 61.566201561774086,
    "distance_to_path": 8.894809683734,
@@ -114,6 +122,7 @@
    "cwAngleDeg": 0,
    "cwLen": 12,
    "cwWid": 4,
+   "cwOffset": 0,
    "pedX": 30,
    "pedY": -1,
    "pedHeadingDeg": -90,
@@ -124,7 +133,8 @@
   "expected": {
    "approach_angle": 180.0,
    "trajectory_approach_angle": 180.0,
-   "endpoint_approach_angle": 180.0,
+   "path_crossing_angle": 90.0,
+   "moving_toward_conflict": false,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 0.6,
@@ -141,6 +151,7 @@
    "cwAngleDeg": 0,
    "cwLen": 12,
    "cwWid": 4,
+   "cwOffset": 0,
    "pedX": 30,
    "pedY": 7,
    "pedHeadingDeg": -90,
@@ -151,7 +162,8 @@
   "expected": {
    "approach_angle": 0.0,
    "trajectory_approach_angle": null,
-   "endpoint_approach_angle": 0.0,
+   "path_crossing_angle": 90.0,
+   "moving_toward_conflict": null,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 180.0,
    "distance_to_path": 6.6,
@@ -159,6 +171,64 @@
    "on_crosswalk": true,
    "prediction_hits_crosswalk": false,
    "prediction_length": 0.0
+  }
+ },
+ {
+  "params": {
+   "curvature": -0.05,
+   "cwDist": 30,
+   "cwAngleDeg": -12,
+   "cwLen": 20,
+   "cwWid": 4,
+   "cwOffset": 8,
+   "pedX": 26.51,
+   "pedY": -22.23,
+   "pedHeadingDeg": 127.06,
+   "speed": 1.6,
+   "horizon": 8,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 47.685766559500394,
+   "trajectory_approach_angle": 50.39021551102591,
+   "path_crossing_angle": 34.43606375745054,
+   "moving_toward_conflict": true,
+   "crosswalk_angle": 78.0,
+   "heading_to_crosswalk_angle": 135.0036692696235,
+   "distance_to_path": 6.204384495079893,
+   "distance_to_crosswalk": 0.6670138388527737,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": true,
+   "prediction_length": 12.8
+  }
+ },
+ {
+  "params": {
+   "curvature": 0,
+   "cwDist": 30,
+   "cwAngleDeg": 0,
+   "cwLen": 12,
+   "cwWid": 4,
+   "cwOffset": -14,
+   "pedX": 30,
+   "pedY": 7,
+   "pedHeadingDeg": -90,
+   "speed": 1.4,
+   "horizon": 3.0,
+   "wideBox": 3.1
+  },
+  "expected": {
+   "approach_angle": 0.0,
+   "trajectory_approach_angle": null,
+   "path_crossing_angle": null,
+   "moving_toward_conflict": null,
+   "crosswalk_angle": 90.0,
+   "heading_to_crosswalk_angle": 180.0,
+   "distance_to_path": 6.6,
+   "distance_to_crosswalk": 12.85,
+   "on_crosswalk": false,
+   "prediction_hits_crosswalk": false,
+   "prediction_length": 4.199999999999999
   }
  }
 ]

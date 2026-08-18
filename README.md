@@ -14,7 +14,8 @@ network access needed (plain scripts, so `file://` works).
 - Draws a 2D top-down scene: a two-lane road (configurable **curvature**) with
   dashed center marking, the ego on the right lane with its local path drawn
   as a light-green band at safety-corridor width, a **crosswalk** (position
-  along the path, angle vs the road, dimensions), a **pedestrian** (position,
+  along the path, angle vs the road, dimensions, offset along its own axis
+  for crosswalks mapped asymmetrically around the road), a **pedestrian** (position,
   heading, speed, prediction horizon), and optionally an **other vehicle**
   (4.5 × 1.9 m, own position/heading/speed) with the same naive straight
   prediction. The rule runs once per object and the crosswalk is blocked if
@@ -49,20 +50,22 @@ heading, scroll to zoom, drag the background to pan.
   crosswalk **entry point** — the nearest point of (prediction buffer ∩
   crosswalk polygon) along the trajectory. It is `None` when the prediction
   misses the crosswalk.
-- The **endpoint approach angle** takes the crosswalk end on the object's
-  side — the **centerline endpoint plus both boundary corners** — computes
-  the towards-path direction from each of the three anchors, and keeps the
-  **largest** angle vs the object's heading. The object only counts as
-  approaching if it approaches from every anchor's viewpoint. Unlike the
-  entry-point anchor, the anchors are fixed per crosswalk side — stable
-  against prediction wiggle and against the ego path curving under the
-  crosswalk (autoware_mini branch `crosswalk_centerline_endpoint_anchor`).
-- Two rules are bundled: the **production rule** (entry-point anchor) and the
-  **endpoint-anchored rule** (same thresholds, endpoint anchor in the
-  trajectory branch). Both block when the relevant angle is under 60°, or
-  when the object is departing (`180 − angle < 60°`) but still within half of
-  `wide_safety_box_width` of the path — so pedestrians walking parallel to the
-  road, and vehicles driving along it, do not block.
+- The **crossing gate** (autoware_mini branch
+  `crosswalk_centerline_endpoint_anchor`) uses projection-free quantities
+  measured at the **conflict point** — where the ego path passes through the
+  crosswalk: the **path crossing angle** (object heading vs the path tangent
+  there, folded to 0–90°) and **moving toward conflict** (heading within 90°
+  of the chord from the prediction's crosswalk entry to the conflict point).
+  Combined with the crossing-axis alignment (`heading_to_crosswalk_angle`
+  folded to 0–90°), the gate blocks objects that cross the ego lane
+  transversally, along the crossing direction, heading toward the conflict
+  point — with no anchor points or side selection to get wrong on long,
+  skewed, or asymmetrically mapped crosswalks.
+- Two rules are bundled: the **production rule** (entry-point anchored
+  approach angle, blocking under 60° or departing within half of
+  `wide_safety_box_width` of the path) and the **combined-gate rule**
+  (`path_crossing_angle > 30°` and axis alignment `< 60°` and toward — or
+  departing but still within the wide box).
 
 Not modeled: temporal filtering (the tool evaluates a single frame) and ego
 motion / braking dynamics — the tool answers *should this crosswalk be treated
@@ -81,7 +84,8 @@ object with that object's values bound.
 |---|---|
 | `approach_angle` | object heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) |
 | `trajectory_approach_angle` | same angle taken at the prediction's crosswalk entry point; `None` if the prediction misses the crosswalk |
-| `endpoint_approach_angle` | max angle between object heading and the towards-path directions anchored at the near crosswalk end (centerline endpoint + both corners), 0–180° |
+| `path_crossing_angle` | object heading vs ego-path tangent at the conflict point (where the path passes through the crosswalk), 0–90°; `None` if the path misses the crosswalk |
+| `moving_toward_conflict` | object heading within 90° of the direction from the prediction's crosswalk entry to the conflict point (bool); `None` without a conflict point or crosswalk entry |
 | `crosswalk_angle` | crossing axis vs road direction, 0–90° (90 = perpendicular crosswalk) |
 | `heading_to_crosswalk_angle` | object heading vs crossing-axis direction, 0–180° |
 | `distance_to_path` | object footprint to ego path centerline (m) |

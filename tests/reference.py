@@ -51,8 +51,8 @@ def compute(p):
 
     cwx, cwy, cwh = path_pose(p['curvature'], p['cwDist'])
     axis_h = cwh + math.pi / 2 + math.radians(p['cwAngleDeg'])
-    cwx -= math.sin(cwh) * LANE_WIDTH / 2
-    cwy += math.cos(cwh) * LANE_WIDTH / 2
+    cwx += -math.sin(cwh) * LANE_WIDTH / 2 + math.cos(axis_h) * p.get('cwOffset', 0)
+    cwy += math.cos(cwh) * LANE_WIDTH / 2 + math.sin(axis_h) * p.get('cwOffset', 0)
     cw_poly = rect_poly(cwx, cwy, axis_h, p['cwLen'], p['cwWid'])
 
     ped = shapely.Point(p['pedX'], p['pedY'])
@@ -91,26 +91,25 @@ def compute(p):
     if cw_angle > 90:
         cw_angle = 180 - cw_angle
 
-    # endpoint approach angle: max angle between heading and the towards-path directions
-    # anchored at the crosswalk end on the object's side — centerline endpoint + both
-    # boundary corners (branch crosswalk_centerline_endpoint_anchor)
-    endpoints = [shapely.Point(cwx + math.cos(axis_h) * p['cwLen'] / 2, cwy + math.sin(axis_h) * p['cwLen'] / 2),
-                 shapely.Point(cwx - math.cos(axis_h) * p['cwLen'] / 2, cwy - math.sin(axis_h) * p['cwLen'] / 2)]
-    endpoint = min(endpoints, key=ped.distance)
-    normal = (-math.sin(axis_h) * p['cwWid'] / 2, math.cos(axis_h) * p['cwWid'] / 2)
-    anchors = [endpoint,
-               shapely.Point(endpoint.x + normal[0], endpoint.y + normal[1]),
-               shapely.Point(endpoint.x - normal[0], endpoint.y - normal[1])]
-    endpoint_angle = 0.0
-    for anchor in anchors:
-        a_np = path_ls.interpolate(path_ls.project(anchor))
-        toward_h = math.atan2(a_np.y - anchor.y, a_np.x - anchor.x)
-        endpoint_angle = max(endpoint_angle, math.degrees(get_angle_between_two_headings(ped_h, toward_h)))
+    # crossing gate (branch crosswalk_centerline_endpoint_anchor): conflict point = middle
+    # path sample inside the crosswalk (same quantization as core.js pathConflict), path
+    # tangent there is analytic; toward uses the chord from the crosswalk entry to it
+    inside = [pt for pt in pts if cw_poly.covers(shapely.Point(pt[0], pt[1]))]
+    crossing_angle = None
+    toward = None
+    if inside:
+        conflict_x, conflict_y, conflict_th = inside[len(inside) // 2]
+        angle = math.degrees(get_angle_between_two_headings(ped_h, conflict_th))
+        crossing_angle = min(angle, 180 - angle)
+        if hits:
+            toward_h = math.atan2(conflict_y - entry.y, conflict_x - entry.x)
+            toward = math.degrees(get_angle_between_two_headings(ped_h, toward_h)) < 90
 
     return {
         'approach_angle': approach,
         'trajectory_approach_angle': traj_angle,
-        'endpoint_approach_angle': endpoint_angle,
+        'path_crossing_angle': crossing_angle,
+        'moving_toward_conflict': toward,
         'crosswalk_angle': cw_angle,
         'heading_to_crosswalk_angle': math.degrees(get_angle_between_two_headings(ped_h, axis_h)),
         'distance_to_path': dist_path,
@@ -121,7 +120,7 @@ def compute(p):
     }
 
 
-BASE = dict(curvature=0, cwDist=30, cwAngleDeg=0, cwLen=12, cwWid=4,
+BASE = dict(curvature=0, cwDist=30, cwAngleDeg=0, cwLen=12, cwWid=4, cwOffset=0,
             pedX=30, pedY=7, pedHeadingDeg=-90, speed=1.4, horizon=3.0, wideBox=3.1)
 
 CONFIGS = [
@@ -131,6 +130,9 @@ CONFIGS = [
     dict(BASE, curvature=-0.03, pedX=35, pedY=-9, pedHeadingDeg=100, horizon=5), # right curve, far side
     dict(BASE, pedX=30, pedY=-1, pedHeadingDeg=-90),                             # departing on road
     dict(BASE, speed=0),                                                         # no prediction
+    dict(BASE, curvature=-0.05, cwAngleDeg=-12, cwLen=20, cwOffset=8,            # long offset crosswalk,
+         pedX=26.51, pedY=-22.23, pedHeadingDeg=127.06, speed=1.6, horizon=8),   # diagonal crosser
+    dict(BASE, cwOffset=-14, cwLen=12),                                          # crosswalk shifted off the path
 ]
 
 print(json.dumps([{'params': c, 'expected': compute(c)} for c in CONFIGS], indent=1))

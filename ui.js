@@ -5,7 +5,8 @@
 const QUANTITIES = [
   { id: 'approach_angle', desc: 'ped heading vs direction to nearest path point (deg, 0–180; 0 = straight at the path)' },
   { id: 'trajectory_approach_angle', desc: 'same angle at the predicted trajectory’s crosswalk entry point; None if prediction misses the crosswalk' },
-  { id: 'endpoint_approach_angle', desc: 'max angle between heading and the towards-path directions anchored at the near crosswalk end — centerline endpoint + both corners (deg, 0–180)' },
+  { id: 'path_crossing_angle', desc: 'heading vs ego-path tangent at the conflict point where the path passes through the crosswalk (deg, 0–90; 90 = crossing the lane perpendicularly); None if the path misses the crosswalk' },
+  { id: 'moving_toward_conflict', desc: 'heading within 90° of the direction from the prediction’s crosswalk entry to the conflict point (bool); None without a conflict point or crosswalk entry' },
   { id: 'crosswalk_angle', desc: 'crossing axis vs road direction (deg, 0–90; 90 = perpendicular crosswalk)' },
   { id: 'heading_to_crosswalk_angle', desc: 'ped heading vs crossing axis direction (deg, 0–180)' },
   { id: 'distance_to_path', desc: 'ped footprint to ego path centerline (m)' },
@@ -36,28 +37,30 @@ if 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:
     return True
 return False`;
 
-const ENDPOINT_RULE = `# Endpoint-anchored rule (branch crosswalk_centerline_endpoint_anchor)
-# Same as the production rule, but the trajectory branch measures the
-# heading against towards-path directions anchored at the crosswalk end
-# on the object's side (centerline endpoint + both corners), taking the
-# largest angle — so the object only counts as approaching if it
-# approaches from every anchor's viewpoint.
+const COMBINED_RULE = `# Combined-gate rule (branch crosswalk_centerline_endpoint_anchor)
+# Trajectory branch: block when the prediction crosses the ego lane
+# transversally (path_crossing_angle > 30), moves along the crossing
+# axis (within 60 deg of it), and heads toward the conflict point —
+# or is departing but still within half of wide_safety_box_width.
 
 if on_crosswalk:
     angle = approach_angle
-elif prediction_hits_crosswalk:
-    angle = endpoint_approach_angle
-else:
+    if angle < 60:
+        return True
+    return 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2
+
+if not prediction_hits_crosswalk or path_crossing_angle is None:
     return False
 
-if angle < 60:
-    return True
-if 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:
-    return True
+axis_alignment = min(heading_to_crosswalk_angle, 180 - heading_to_crosswalk_angle)
+if path_crossing_angle > 30 and axis_alignment < 60:
+    if moving_toward_conflict:
+        return True
+    return distance_to_path < wide_safety_box_width / 2
 return False`;
 
 const DEFAULT_PARAMS = {
-  curvature: 0, cwDist: 30, cwAngleDeg: 0, cwLen: 12, cwWid: 4,
+  curvature: 0, cwDist: 30, cwAngleDeg: 0, cwLen: 12, cwWid: 4, cwOffset: 0,
   pedX: 30, pedY: 8.5, pedHeadingDeg: -90, speed: 1.4, horizon: 3.0, wideBox: 3.1,
   vehEnabled: false, vehX: 50, vehY: 3.5, vehHeadingDeg: 180, vehSpeed: 8,
 };
@@ -85,17 +88,22 @@ const STARTER_SCENARIOS = [
     params: { ...DEFAULT_PARAMS, pedHeadingDeg: 0, vehEnabled: true, vehX: 35, vehY: 10, vehHeadingDeg: -135, vehSpeed: 5 } },
   // #417 signature: fast object rides along a curving road, its straight prediction clips
   // the crosswalk far from it and the entry-point anchor reads "approaching" (~58°);
-  // the endpoint anchor reads ~124° and clears it
+  // the crossing gate clears it (72° off the crossing axis)
   { name: 'Scooter cutting the curve, prediction clips crosswalk', expected: false,
     params: { ...DEFAULT_PARAMS, curvature: 0.04, cwAngleDeg: -20, pedX: 16.96, pedY: 10.98,
               pedHeadingDeg: 30.4, speed: 8, horizon: 3.0 } },
+  // genuine crosser walking diagonally along a long crosswalk mapped asymmetrically around
+  // the road; anchor-based angles read this as departing, the crossing gate blocks it
+  { name: 'Diagonal crosser along long offset crosswalk', expected: true,
+    params: { ...DEFAULT_PARAMS, curvature: -0.05, cwAngleDeg: -12, cwLen: 20, cwOffset: 8,
+              pedX: 26.51, pedY: -22.23, pedHeadingDeg: 127.06, speed: 1.6, horizon: 8 } },
 ];
 
 let params = { ...DEFAULT_PARAMS };
 let varNames = Object.fromEntries(QUANTITIES.map(q => [q.id, q.id]));
 let scenarios = STARTER_SCENARIOS.map(s => ({ name: s.name, expected: s.expected, params: { ...s.params } }));
 let rules = [{ name: 'production rule', code: DEFAULT_RULE },
-             { name: 'endpoint-anchored rule', code: ENDPOINT_RULE }];
+             { name: 'combined-gate rule', code: COMBINED_RULE }];
 let selectedRule = 0;  // the editor starts with the production rule loaded
 let selectedScenario = -1;
 let workingParams = null;  // snapshot of the unsaved working scene while a scenario is loaded
@@ -113,8 +121,9 @@ const CONTROLS = [
   { section: 'Crosswalk' },
   { key: 'cwDist', label: 'distance along path (m)', min: 5, max: 90, step: 0.5, fmt: v => v.toFixed(1) },
   { key: 'cwAngleDeg', label: 'angle vs road normal (°)', min: -45, max: 45, step: 1, fmt: v => v.toFixed(0) },
-  { key: 'cwLen', label: 'length across road (m)', min: 6, max: 24, step: 0.5, fmt: v => v.toFixed(1) },
+  { key: 'cwLen', label: 'length across road (m)', min: 6, max: 30, step: 0.5, fmt: v => v.toFixed(1) },
   { key: 'cwWid', label: 'width along road (m)', min: 2, max: 8, step: 0.5, fmt: v => v.toFixed(1) },
+  { key: 'cwOffset', label: 'offset along axis (m)', min: -12, max: 12, step: 0.5, fmt: v => v.toFixed(1) },
   { section: 'Pedestrian' },
   { key: 'pedX', label: 'x (m)', number: true },
   { key: 'pedY', label: 'y (m)', number: true },
@@ -199,7 +208,7 @@ function syncControls() {
 const ANGLE_VIZ = [
   { id: 'approach_angle', color: '--ink2' },
   { id: 'trajectory_approach_angle', color: '--cw-hit' },
-  { id: 'endpoint_approach_angle', color: '--angle-ep' },
+  { id: 'path_crossing_angle', color: '--angle-ep' },
   { id: 'crosswalk_angle', color: '--angle-cw' },
   { id: 'heading_to_crosswalk_angle', color: '--angle-hcw' },
 ];
@@ -841,10 +850,10 @@ function draw() {
   const subj = useVeh
     ? { center: d.veh.center, heading: d.veh.heading, np: d.veh.np, towardPathH: d.veh.towardPathH,
         entry: d.veh.entry, entryNp: d.veh.entryNp, entryTowardPathH: d.veh.entryTowardPathH,
-        epAnchor: d.veh.epAnchor, clip: d.veh.clip, values: scene.vehValues }
+        gate: d.veh.gate, clip: d.veh.clip, values: scene.vehValues }
     : { center: d.ped, heading: d.pedH, np: d.np, towardPathH: d.towardPathH,
         entry: d.entry, entryNp: d.entryNp, entryTowardPathH: d.entryTowardPathH,
-        epAnchor: d.epAnchor, clip: d.clip, values: scene.values };
+        gate: d.gate, clip: d.clip, values: scene.values };
 
   // crosswalk angle: road direction vs crossing axis at the crosswalk center
   if (angleViz.crosswalk_angle) {
@@ -929,46 +938,33 @@ function draw() {
       nearSubj ? 2.8 : 1.0);
   }
 
-  // endpoint approach angle: subject heading vs the towards-path rays anchored at the
-  // crosswalk end on the subject's side (endpoint + both corners); the max-angle anchor wins
-  if (angleViz.endpoint_approach_angle) {
+  // path crossing angle: subject heading vs the path tangent at the conflict point, plus
+  // the chord from the prediction's crosswalk entry to the conflict point (toward test)
+  if (angleViz.path_crossing_angle && d.conflict && subj.values.path_crossing_angle !== null) {
     const col = cssVar('--angle-ep');
-    const anchor = subj.epAnchor;
-    for (const ep of d.cwEndpoints) {  // mark both centerline ends; the near side's is filled
-      const eS = w2s(ep);
-      ctx.beginPath();
-      ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1.5;
-      if (ep === anchor.anchors[0].point) { ctx.fillStyle = col; ctx.fill(); }
-      ctx.stroke();
+    const cp = d.conflict.point;
+    // path tangent through the conflict point (dashed, both directions)
+    drawRay(cp, d.conflict.pathH, 4.5, col, true);
+    drawRay(cp, d.conflict.pathH + Math.PI, 4.5, col, true);
+    const cS = w2s(cp);
+    ctx.beginPath();
+    ctx.arc(cS.x, cS.y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = col;
+    ctx.fill();
+    // chord from the crosswalk entry to the conflict point (the toward test)
+    if (subj.entry && subj.gate.towardH !== undefined) {
+      drawRay(subj.entry, subj.gate.towardH, Math.hypot(cp.x - subj.entry.x, cp.y - subj.entry.y), col, true);
     }
-    // all three same-side anchors: dashed rays to their nearest path points
-    for (const a of anchor.anchors) {
-      drawRay(a.point, a.towardPathH, Math.hypot(a.np.x - a.point.x, a.np.y - a.point.y), col, true);
-      const aS = w2s(a.point);
-      ctx.beginPath();
-      ctx.arc(aS.x, aS.y, a === anchor.winner ? 4 : 2.5, 0, 2 * Math.PI);
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1.5;
-      if (a === anchor.winner) { ctx.fillStyle = col; ctx.fill(); }
-      ctx.stroke();
-      const npS = w2s(a.np);
-      ctx.beginPath();
-      ctx.arc(npS.x, npS.y, 2.5, 0, 2 * Math.PI);
-      ctx.fillStyle = col;
-      ctx.fill();
-    }
-    // heading leg + arc at the winning (max-angle) anchor
-    const w = anchor.winner;
-    const ahead = { x: w.point.x + 2.4 * Math.cos(subj.heading), y: w.point.y + 2.4 * Math.sin(subj.heading) };
+    // heading leg + arc at the conflict point; pick the tangent direction forming the folded angle
+    const ahead = { x: cp.x + 2.4 * Math.cos(subj.heading), y: cp.y + 2.4 * Math.sin(subj.heading) };
     ctx.strokeStyle = col;
     ctx.lineWidth = 1.5;
-    linePath([w.point, ahead]);
+    linePath([cp, ahead]);
     ctx.stroke();
     drawArrowHead(ahead, subj.heading, 7, col);
-    drawAngleArc(w.point, subj.heading, w.towardPathH, 1.6,
-      `${varNames.endpoint_approach_angle}=${subj.values.endpoint_approach_angle.toFixed(0)}°`, col);
+    const tangentDir = angDiffDeg(subj.heading, d.conflict.pathH) <= 90 ? d.conflict.pathH : d.conflict.pathH + Math.PI;
+    drawAngleArc(cp, subj.heading, tangentDir, 1.6,
+      `${varNames.path_crossing_angle}=${subj.values.path_crossing_angle.toFixed(0)}°`, col);
   }
 
   // pedestrian's entry point marker (the vehicle's is drawn in its own section)
