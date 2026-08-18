@@ -49,12 +49,14 @@ heading, scroll to zoom, drag the background to pan.
   crosswalk **entry point** — the nearest point of (prediction buffer ∩
   crosswalk polygon) along the trajectory. It is `None` when the prediction
   misses the crosswalk.
-- The **endpoint approach angle** is the object's heading vs the direction
-  from the crosswalk **centerline endpoint nearest to the object** toward that
-  endpoint's nearest point on the ego path. Unlike the entry-point anchor, it
-  is fixed per crosswalk side — stable against prediction wiggle and against
-  the ego path curving under the crosswalk (autoware_mini branch
-  `crosswalk_centerline_endpoint_anchor`).
+- The **endpoint approach angle** takes the crosswalk end on the object's
+  side — the **centerline endpoint plus both boundary corners** — computes
+  the towards-path direction from each of the three anchors, and keeps the
+  **largest** angle vs the object's heading. The object only counts as
+  approaching if it approaches from every anchor's viewpoint. Unlike the
+  entry-point anchor, the anchors are fixed per crosswalk side — stable
+  against prediction wiggle and against the ego path curving under the
+  crosswalk (autoware_mini branch `crosswalk_centerline_endpoint_anchor`).
 - Two rules are bundled: the **production rule** (entry-point anchor) and the
   **endpoint-anchored rule** (same thresholds, endpoint anchor in the
   trajectory branch). Both block when the relevant angle is under 60°, or
@@ -79,7 +81,7 @@ object with that object's values bound.
 |---|---|
 | `approach_angle` | object heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) |
 | `trajectory_approach_angle` | same angle taken at the prediction's crosswalk entry point; `None` if the prediction misses the crosswalk |
-| `endpoint_approach_angle` | object heading vs direction from the nearest crosswalk-centerline endpoint to its nearest path point, 0–180° |
+| `endpoint_approach_angle` | max angle between object heading and the towards-path directions anchored at the near crosswalk end (centerline endpoint + both corners), 0–180° |
 | `crosswalk_angle` | crossing axis vs road direction, 0–90° (90 = perpendicular crosswalk) |
 | `heading_to_crosswalk_angle` | object heading vs crossing-axis direction, 0–180° |
 | `distance_to_path` | object footprint to ego path centerline (m) |

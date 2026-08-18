@@ -5,7 +5,7 @@
 const QUANTITIES = [
   { id: 'approach_angle', desc: 'ped heading vs direction to nearest path point (deg, 0–180; 0 = straight at the path)' },
   { id: 'trajectory_approach_angle', desc: 'same angle at the predicted trajectory’s crosswalk entry point; None if prediction misses the crosswalk' },
-  { id: 'endpoint_approach_angle', desc: 'heading vs direction from the nearest crosswalk-centerline endpoint to its nearest path point (deg, 0–180)' },
+  { id: 'endpoint_approach_angle', desc: 'max angle between heading and the towards-path directions anchored at the near crosswalk end — centerline endpoint + both corners (deg, 0–180)' },
   { id: 'crosswalk_angle', desc: 'crossing axis vs road direction (deg, 0–90; 90 = perpendicular crosswalk)' },
   { id: 'heading_to_crosswalk_angle', desc: 'ped heading vs crossing axis direction (deg, 0–180)' },
   { id: 'distance_to_path', desc: 'ped footprint to ego path centerline (m)' },
@@ -38,9 +38,10 @@ return False`;
 
 const ENDPOINT_RULE = `# Endpoint-anchored rule (branch crosswalk_centerline_endpoint_anchor)
 # Same as the production rule, but the trajectory branch measures the
-# heading against the towards-path direction anchored at the crosswalk
-# centerline endpoint nearest to the object, instead of at the
-# trajectory's crosswalk entry point.
+# heading against towards-path directions anchored at the crosswalk end
+# on the object's side (centerline endpoint + both corners), taking the
+# largest angle — so the object only counts as approaching if it
+# approaches from every anchor's viewpoint.
 
 if on_crosswalk:
     angle = approach_angle
@@ -840,12 +841,10 @@ function draw() {
   const subj = useVeh
     ? { center: d.veh.center, heading: d.veh.heading, np: d.veh.np, towardPathH: d.veh.towardPathH,
         entry: d.veh.entry, entryNp: d.veh.entryNp, entryTowardPathH: d.veh.entryTowardPathH,
-        endpoint: d.veh.endpoint, endpointNp: d.veh.endpointNp, endpointTowardPathH: d.veh.endpointTowardPathH,
-        clip: d.veh.clip, values: scene.vehValues }
+        epAnchor: d.veh.epAnchor, clip: d.veh.clip, values: scene.vehValues }
     : { center: d.ped, heading: d.pedH, np: d.np, towardPathH: d.towardPathH,
         entry: d.entry, entryNp: d.entryNp, entryTowardPathH: d.entryTowardPathH,
-        endpoint: d.endpoint, endpointNp: d.endpointNp, endpointTowardPathH: d.endpointTowardPathH,
-        clip: d.clip, values: scene.values };
+        epAnchor: d.epAnchor, clip: d.clip, values: scene.values };
 
   // crosswalk angle: road direction vs crossing axis at the crosswalk center
   if (angleViz.crosswalk_angle) {
@@ -930,35 +929,45 @@ function draw() {
       nearSubj ? 2.8 : 1.0);
   }
 
-  // endpoint approach angle: subject heading vs the towards-path ray anchored at the
-  // crosswalk centerline endpoint nearest to the subject
+  // endpoint approach angle: subject heading vs the towards-path rays anchored at the
+  // crosswalk end on the subject's side (endpoint + both corners); the max-angle anchor wins
   if (angleViz.endpoint_approach_angle) {
     const col = cssVar('--angle-ep');
-    for (const ep of d.cwEndpoints) {  // mark both centerline ends; the chosen anchor is filled
+    const anchor = subj.epAnchor;
+    for (const ep of d.cwEndpoints) {  // mark both centerline ends; the near side's is filled
       const eS = w2s(ep);
       ctx.beginPath();
       ctx.arc(eS.x, eS.y, 4, 0, 2 * Math.PI);
       ctx.strokeStyle = col;
       ctx.lineWidth = 1.5;
-      if (ep === subj.endpoint) { ctx.fillStyle = col; ctx.fill(); }
+      if (ep === anchor.anchors[0].point) { ctx.fillStyle = col; ctx.fill(); }
       ctx.stroke();
     }
-    // leg 1: subject heading drawn at the anchor endpoint
-    const ahead = { x: subj.endpoint.x + 2.4 * Math.cos(subj.heading), y: subj.endpoint.y + 2.4 * Math.sin(subj.heading) };
+    // all three same-side anchors: dashed rays to their nearest path points
+    for (const a of anchor.anchors) {
+      drawRay(a.point, a.towardPathH, Math.hypot(a.np.x - a.point.x, a.np.y - a.point.y), col, true);
+      const aS = w2s(a.point);
+      ctx.beginPath();
+      ctx.arc(aS.x, aS.y, a === anchor.winner ? 4 : 2.5, 0, 2 * Math.PI);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      if (a === anchor.winner) { ctx.fillStyle = col; ctx.fill(); }
+      ctx.stroke();
+      const npS = w2s(a.np);
+      ctx.beginPath();
+      ctx.arc(npS.x, npS.y, 2.5, 0, 2 * Math.PI);
+      ctx.fillStyle = col;
+      ctx.fill();
+    }
+    // heading leg + arc at the winning (max-angle) anchor
+    const w = anchor.winner;
+    const ahead = { x: w.point.x + 2.4 * Math.cos(subj.heading), y: w.point.y + 2.4 * Math.sin(subj.heading) };
     ctx.strokeStyle = col;
     ctx.lineWidth = 1.5;
-    linePath([subj.endpoint, ahead]);
+    linePath([w.point, ahead]);
     ctx.stroke();
     drawArrowHead(ahead, subj.heading, 7, col);
-    // leg 2: dashed ray to the endpoint's nearest point on the ego path
-    drawRay(subj.endpoint, subj.endpointTowardPathH,
-      Math.hypot(subj.endpointNp.x - subj.endpoint.x, subj.endpointNp.y - subj.endpoint.y), col, true);
-    const epnS = w2s(subj.endpointNp);
-    ctx.beginPath();
-    ctx.arc(epnS.x, epnS.y, 3, 0, 2 * Math.PI);
-    ctx.fillStyle = col;
-    ctx.fill();
-    drawAngleArc(subj.endpoint, subj.heading, subj.endpointTowardPathH, 1.6,
+    drawAngleArc(w.point, subj.heading, w.towardPathH, 1.6,
       `${varNames.endpoint_approach_angle}=${subj.values.endpoint_approach_angle.toFixed(0)}°`, col);
   }
 

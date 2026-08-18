@@ -8,7 +8,7 @@
     },
     {
       "name": "endpoint-anchored rule",
-      "code": "# Endpoint-anchored rule (branch crosswalk_centerline_endpoint_anchor)\n# Same as the production rule, but the trajectory branch measures the\n# heading against the towards-path direction anchored at the crosswalk\n# centerline endpoint nearest to the object, instead of at the\n# trajectory's crosswalk entry point.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk:\n    angle = endpoint_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False"
+      "code": "# Endpoint-anchored rule (branch crosswalk_centerline_endpoint_anchor)\n# Same as the production rule, but the trajectory branch measures the\n# heading against towards-path directions anchored at the crosswalk end\n# on the object's side (centerline endpoint + both corners), taking the\n# largest angle — so the object only counts as approaching if it\n# approaches from every anchor's viewpoint.\n\nif on_crosswalk:\n    angle = approach_angle\nelif prediction_hits_crosswalk:\n    angle = endpoint_approach_angle\nelse:\n    return False\n\nif angle < 60:\n    return True\nif 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2:\n    return True\nreturn False"
     }
   ],
   "variable_names": {

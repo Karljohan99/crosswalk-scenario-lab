@@ -43,7 +43,7 @@
   "expected": {
    "approach_angle": 13.518031015152715,
    "trajectory_approach_angle": 13.518031015152715,
-   "endpoint_approach_angle": 14.090988810284054,
+   "endpoint_approach_angle": 16.955777785938338,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 165.6225322921506,
    "distance_to_path": 6.332954733443269,
@@ -97,7 +97,7 @@
   "expected": {
    "approach_angle": 114.56633332109249,
    "trajectory_approach_angle": null,
-   "endpoint_approach_angle": 118.4337984382259,
+   "endpoint_approach_angle": 121.44182686266274,
    "crosswalk_angle": 90.0,
    "heading_to_crosswalk_angle": 61.566201561774086,
    "distance_to_path": 8.894809683734,

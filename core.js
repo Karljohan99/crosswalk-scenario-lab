@@ -7,8 +7,9 @@
  *  - trajectory buffer half-width = dimensions.y / 2                                            [collision.py:175]
  *  - trajectory approach angle taken at the nearest point of (buffer ∩ crosswalk) along the trajectory
  *    [collision_checker.py:806-817]
- *  - endpoint approach angle: heading vs the towards-path heading anchored at the crosswalk
- *    centerline endpoint nearest to the object [branch crosswalk_centerline_endpoint_anchor]
+ *  - endpoint approach angle: max angle between the heading and the towards-path headings
+ *    anchored at the crosswalk end on the object's side (centerline endpoint + both boundary
+ *    corners) [branch crosswalk_centerline_endpoint_anchor]
  */
 
 const PED_RADIUS = 0.4;   // pedestrian footprint radius = dimensions/2 (0.8 m square-ish person)
@@ -189,16 +190,20 @@ function computePrediction(pathPts, cwPoly, p0, heading, predLen, halfWidth) {
   return out;
 }
 
-// towards-path heading anchored at the crosswalk centerline endpoint nearest to the object,
-// and the angle between the object's (trajectory) heading and that anchor
+// towards-path headings anchored at the crosswalk end on the object's side (centerline
+// endpoint first, then both boundary corners); the angle is the max over the three anchors,
+// so the object only counts as approaching if it approaches from every anchor's viewpoint
 // [branch crosswalk_centerline_endpoint_anchor]
-function endpointAnchor(pathPts, cwEndpoints, c, heading) {
-  const near = Math.hypot(c.x - cwEndpoints[0].x, c.y - cwEndpoints[0].y) <=
-               Math.hypot(c.x - cwEndpoints[1].x, c.y - cwEndpoints[1].y) ? cwEndpoints[0] : cwEndpoints[1];
-  const np = nearestOnPolyline(pathPts, near);
-  const towardPathH = Math.atan2(np.y - near.y, np.x - near.x);
-  return { endpoint: near, endpointNp: np, endpointTowardPathH: towardPathH,
-           angle: angDiffDeg(heading, towardPathH) };
+function endpointAnchor(pathPts, cwAnchors, c, heading) {
+  const side = Math.hypot(c.x - cwAnchors[0][0].x, c.y - cwAnchors[0][0].y) <=
+               Math.hypot(c.x - cwAnchors[1][0].x, c.y - cwAnchors[1][0].y) ? 0 : 1;
+  const anchors = cwAnchors[side].map(a => {
+    const np = nearestOnPolyline(pathPts, a);
+    const towardPathH = Math.atan2(np.y - a.y, np.x - a.x);
+    return { point: a, np, towardPathH, angle: angDiffDeg(heading, towardPathH) };
+  });
+  const winner = anchors.reduce((w, a) => (a.angle > w.angle ? a : w));
+  return { side, anchors, winner, angle: winner.angle };
 }
 
 /* compute all quantities + drawing geometry for a scene parameter set */
@@ -211,11 +216,17 @@ function computeScene(p) {
   const cwCenter = { x: cwPose.x - Math.sin(cwPose.h) * LANE_WIDTH / 2,
                      y: cwPose.y + Math.cos(cwPose.h) * LANE_WIDTH / 2 };
   const cwPoly = ensureCCW(rectPoly(cwCenter, axisH, p.cwLen, p.cwWid));
-  // centerline endpoints = the two ends of the crossing axis (lanelet.centerline[0] / [-1])
+  // centerline endpoints = the two ends of the crossing axis (lanelet.centerline[0] / [-1]);
+  // per-side anchors = the endpoint plus the two boundary corners on that side
   const cwEndpoints = [
     { x: cwCenter.x + Math.cos(axisH) * p.cwLen / 2, y: cwCenter.y + Math.sin(axisH) * p.cwLen / 2 },
     { x: cwCenter.x - Math.cos(axisH) * p.cwLen / 2, y: cwCenter.y - Math.sin(axisH) * p.cwLen / 2 },
   ];
+  const cwNormal = { x: -Math.sin(axisH), y: Math.cos(axisH) };  // across the crossing axis (along the road)
+  const cwAnchors = cwEndpoints.map(e => [e,
+    { x: e.x + cwNormal.x * p.cwWid / 2, y: e.y + cwNormal.y * p.cwWid / 2 },
+    { x: e.x - cwNormal.x * p.cwWid / 2, y: e.y - cwNormal.y * p.cwWid / 2 },
+  ]);
 
   const ped = { x: p.pedX, y: p.pedY };
   const pedH = rad(p.pedHeadingDeg);
@@ -232,7 +243,7 @@ function computeScene(p) {
   const predLen = p.speed * p.horizon;
   const pedFront = { x: ped.x + Math.cos(pedH) * PED_RADIUS, y: ped.y + Math.sin(pedH) * PED_RADIUS };  // trajectory starts at object front
   const pred = computePrediction(pathPts, cwPoly, pedFront, pedH, predLen, PED_RADIUS);
-  const pedAnchor = endpointAnchor(pathPts, cwEndpoints, ped, pedH);
+  const pedAnchor = endpointAnchor(pathPts, cwAnchors, ped, pedH);
 
   let cwAngle = angDiffDeg(axisH, cwPose.h);
   if (cwAngle > 90) cwAngle = 180 - cwAngle;                   // axis is undirected vs road: fold to 0-90
@@ -248,7 +259,7 @@ function computeScene(p) {
     const vehPredLen = p.vehSpeed * p.horizon;
     const front = { x: c.x + Math.cos(h) * VEH_LENGTH / 2, y: c.y + Math.sin(h) * VEH_LENGTH / 2 };
     const vehPred = computePrediction(pathPts, cwPoly, front, h, vehPredLen, VEH_WIDTH / 2);
-    const vehAnchor = endpointAnchor(pathPts, cwEndpoints, c, h);
+    const vehAnchor = endpointAnchor(pathPts, cwAnchors, c, h);
     const dCw = distPolyToPoly(poly, cwPoly);
     vehValues = {
       approach_angle: angDiffDeg(h, vehTowardH),
@@ -265,7 +276,7 @@ function computeScene(p) {
       wide_safety_box_width: p.wideBox,
       is_pedestrian: false,
     };
-    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred, ...vehAnchor };
+    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred, epAnchor: vehAnchor };
   }
 
   return {
@@ -285,11 +296,10 @@ function computeScene(p) {
       is_pedestrian: true,
     },
     vehValues,
-    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, cwEndpoints, ped, pedH, np, towardPathH,
+    draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, cwEndpoints, cwAnchors, ped, pedH, np, towardPathH,
             predSeg: pred.predSeg, buffer: pred.buffer, clip: pred.clip,
             entry: pred.entry, entryNp: pred.entryNp, entryTowardPathH: pred.entryTowardPathH,
-            endpoint: pedAnchor.endpoint, endpointNp: pedAnchor.endpointNp,
-            endpointTowardPathH: pedAnchor.endpointTowardPathH,
+            epAnchor: pedAnchor,
             veh },
   };
 }
