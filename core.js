@@ -9,8 +9,9 @@
  *    [collision_checker.py:806-817]
  *  - crossing gate [branch crosswalk_centerline_endpoint_anchor]: path_crossing_angle =
  *    heading vs the local path tangent at the conflict point (where the path passes through
- *    the crosswalk), folded to 0-90; moving_toward_conflict = heading within 90 deg of the
- *    chord from the prediction's crosswalk entry to the conflict point
+ *    the crosswalk), folded to 0-90; local_crossing_angle = the same vs the path tangent at
+ *    the object's own nearest path sample; moving_toward_conflict = heading within 90 deg of
+ *    the chord from the prediction's crosswalk entry to the conflict point
  */
 
 const PED_RADIUS = 0.4;   // pedestrian footprint radius = dimensions/2 (0.8 m square-ish person)
@@ -191,6 +192,16 @@ function computePrediction(pathPts, cwPoly, p0, heading, predLen, halfWidth) {
   return out;
 }
 
+// path tangent at the sample nearest to a point (the object's "local" road direction)
+function localPathTangent(pathPts, p) {
+  let bestH = 0, bestD = Infinity;
+  for (const pt of pathPts) {
+    const d = (pt.x - p.x) ** 2 + (pt.y - p.y) ** 2;
+    if (d < bestD) { bestD = d; bestH = pt.h; }
+  }
+  return bestH;
+}
+
 // conflict point and path tangent where the ego path passes through the crosswalk:
 // the middle path sample inside the polygon (null when the path misses the crosswalk)
 function pathConflict(pathPts, cwPoly) {
@@ -244,6 +255,8 @@ function computeScene(p) {
   const pedFront = { x: ped.x + Math.cos(pedH) * PED_RADIUS, y: ped.y + Math.sin(pedH) * PED_RADIUS };  // trajectory starts at object front
   const pred = computePrediction(pathPts, cwPoly, pedFront, pedH, predLen, PED_RADIUS);
   const pedGate = crossingGate(conflict, pedH, pred.entry);
+  const pedLocalTangentH = localPathTangent(pathPts, ped);
+  const pedLocalAngle = angDiffDeg(pedH, pedLocalTangentH);
 
   let cwAngle = angDiffDeg(axisH, cwPose.h);
   if (cwAngle > 90) cwAngle = 180 - cwAngle;                   // axis is undirected vs road: fold to 0-90
@@ -260,11 +273,14 @@ function computeScene(p) {
     const front = { x: c.x + Math.cos(h) * VEH_LENGTH / 2, y: c.y + Math.sin(h) * VEH_LENGTH / 2 };
     const vehPred = computePrediction(pathPts, cwPoly, front, h, vehPredLen, VEH_WIDTH / 2);
     const vehGate = crossingGate(conflict, h, vehPred.entry);
+    const vehLocalTangentH = localPathTangent(pathPts, c);
+    const vehLocalAngle = angDiffDeg(h, vehLocalTangentH);
     const dCw = distPolyToPoly(poly, cwPoly);
     vehValues = {
       approach_angle: angDiffDeg(h, vehTowardH),
       trajectory_approach_angle: vehPred.trajAngle,
       path_crossing_angle: vehGate.crossingAngle,
+      local_crossing_angle: Math.min(vehLocalAngle, 180 - vehLocalAngle),
       moving_toward_conflict: vehGate.toward,
       crosswalk_angle: cwAngle,
       heading_to_crosswalk_angle: angDiffDeg(h, axisH),
@@ -277,7 +293,8 @@ function computeScene(p) {
       wide_safety_box_width: p.wideBox,
       is_pedestrian: false,
     };
-    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred, gate: vehGate };
+    veh = { center: c, heading: h, poly, np: vehNp, towardPathH: vehTowardH, ...vehPred, gate: vehGate,
+            localTangentH: vehLocalTangentH };
   }
 
   return {
@@ -285,6 +302,7 @@ function computeScene(p) {
       approach_angle: approachAngle,
       trajectory_approach_angle: pred.trajAngle,               // null (None) when prediction misses the crosswalk
       path_crossing_angle: pedGate.crossingAngle,              // null (None) when the path misses the crosswalk
+      local_crossing_angle: Math.min(pedLocalAngle, 180 - pedLocalAngle),
       moving_toward_conflict: pedGate.toward,                  // null (None) without a conflict point or crosswalk entry
       crosswalk_angle: cwAngle,
       heading_to_crosswalk_angle: angDiffDeg(pedH, axisH),
@@ -301,7 +319,7 @@ function computeScene(p) {
     draw: { pathPts, cwPose, cwCenter, axisH, cwPoly, conflict, ped, pedH, np, towardPathH,
             predSeg: pred.predSeg, buffer: pred.buffer, clip: pred.clip,
             entry: pred.entry, entryNp: pred.entryNp, entryTowardPathH: pred.entryTowardPathH,
-            gate: pedGate,
+            gate: pedGate, localTangentH: pedLocalTangentH,
             veh },
   };
 }

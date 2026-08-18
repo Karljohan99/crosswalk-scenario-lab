@@ -28,8 +28,8 @@ ref.forEach((tc, i) => {
   const v = computeScene(tc.params).values;
   const e = tc.expected;
   for (const key of ['approach_angle', 'trajectory_approach_angle', 'path_crossing_angle',
-                     'crosswalk_angle', 'heading_to_crosswalk_angle', 'distance_to_path',
-                     'distance_to_crosswalk', 'prediction_length']) {
+                     'local_crossing_angle', 'crosswalk_angle', 'heading_to_crosswalk_angle',
+                     'distance_to_path', 'distance_to_crosswalk', 'prediction_length']) {
     const tol = key.includes('angle') ? 0.15 : 0.02;  // buffer polygons: shapely rounds corners of the clip, we don't
     check(`config ${i} ${key}`, close(v[key], e[key], tol), `js=${v[key]} py=${e[key]}`);
   }
@@ -136,9 +136,19 @@ check('scooter: entry-point anchor reads approaching (<60)', sv.trajectory_appro
   `got ${sv.trajectory_approach_angle}`);
 check('scooter: transversal to the curving path (>30)', sv.path_crossing_angle > 30,
   `got ${sv.path_crossing_angle}`);
-check('scooter: misaligned with crossing axis (>60) — gate clears it',
+check('scooter: misaligned with crossing axis (>60) — no axis certificate',
   Math.min(sv.heading_to_crosswalk_angle, 180 - sv.heading_to_crosswalk_angle) > 60,
   `got ${sv.heading_to_crosswalk_angle}`);
+check('scooter: locally road-parallel (<30) — no local certificate either', sv.local_crossing_angle < 30,
+  `got ${sv.local_crossing_angle}`);
+const skew = starter.scenarios.find(s => s.name.startsWith('Perpendicular crosser'));
+const kv = computeScene(skew.params).values;
+check('skewed crosswalk: >60 off the axis (old gate missed it)',
+  Math.min(kv.heading_to_crosswalk_angle, 180 - kv.heading_to_crosswalk_angle) > 60,
+  `got ${kv.heading_to_crosswalk_angle}`);
+check('skewed crosswalk: local certificate holds (>30) — OR-gate blocks',
+  kv.local_crossing_angle > 30 && kv.path_crossing_angle > 30 && kv.moving_toward_conflict === true,
+  `local=${kv.local_crossing_angle} crossing=${kv.path_crossing_angle} toward=${kv.moving_toward_conflict}`);
 const diag = starter.scenarios.find(s => s.name.startsWith('Diagonal crosser'));
 const dv = computeScene(diag.params).values;
 check('diagonal crosser: transversal (>30), aligned (<60), toward — gate blocks',

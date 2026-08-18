@@ -8,7 +8,7 @@
     },
     {
       "name": "combined-gate rule",
-      "code": "# Combined-gate rule (branch crosswalk_centerline_endpoint_anchor)\n# Trajectory branch: block when the prediction crosses the ego lane\n# transversally (path_crossing_angle > 30), moves along the crossing\n# axis (within 60 deg of it), and heads toward the conflict point —\n# or is departing but still within half of wide_safety_box_width.\n\nif on_crosswalk:\n    angle = approach_angle\n    if angle < 60:\n        return True\n    return 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2\n\nif not prediction_hits_crosswalk or path_crossing_angle is None:\n    return False\n\naxis_alignment = min(heading_to_crosswalk_angle, 180 - heading_to_crosswalk_angle)\nif path_crossing_angle > 30 and axis_alignment < 60:\n    if moving_toward_conflict:\n        return True\n    return distance_to_path < wide_safety_box_width / 2\nreturn False"
+      "code": "# Combined-gate rule (branch crosswalk_centerline_endpoint_anchor)\n# Trajectory branch: block when the prediction crosses the ego lane\n# transversally at the conflict point (path_crossing_angle > 30), the\n# object holds either crossing certificate — moving along the crossing\n# axis (within 60 deg) or crosswise to the road where it currently is\n# (local_crossing_angle > 30) — and it heads toward the conflict point,\n# or is departing but still within half of wide_safety_box_width.\n\nif on_crosswalk:\n    angle = approach_angle\n    if angle < 60:\n        return True\n    return 180 - angle < 60 and distance_to_path < wide_safety_box_width / 2\n\nif not prediction_hits_crosswalk or path_crossing_angle is None:\n    return False\n\naxis_alignment = min(heading_to_crosswalk_angle, 180 - heading_to_crosswalk_angle)\nif path_crossing_angle > 30 and (axis_alignment < 60 or local_crossing_angle > 30):\n    if moving_toward_conflict:\n        return True\n    return distance_to_path < wide_safety_box_width / 2\nreturn False"
     }
   ],
   "variable_names": {
@@ -24,7 +24,8 @@
     "speed": "speed",
     "wide_safety_box_width": "wide_safety_box_width",
     "path_crossing_angle": "path_crossing_angle",
-    "moving_toward_conflict": "moving_toward_conflict"
+    "moving_toward_conflict": "moving_toward_conflict",
+    "local_crossing_angle": "local_crossing_angle"
   },
   "scenarios": [
     {
@@ -249,6 +250,29 @@
         "pedHeadingDeg": 127.06,
         "speed": 1.6,
         "horizon": 8,
+        "wideBox": 3.1,
+        "vehEnabled": false,
+        "vehX": 50,
+        "vehY": 3.5,
+        "vehHeadingDeg": 180,
+        "vehSpeed": 8
+      }
+    },
+    {
+      "name": "Perpendicular crosser on strongly skewed crosswalk",
+      "expected": true,
+      "params": {
+        "curvature": 0,
+        "cwDist": 30,
+        "cwAngleDeg": 62,
+        "cwLen": 26,
+        "cwWid": 6,
+        "cwOffset": 0,
+        "pedX": 31.5,
+        "pedY": 8.5,
+        "pedHeadingDeg": -90,
+        "speed": 1.4,
+        "horizon": 6,
         "wideBox": 3.1,
         "vehEnabled": false,
         "vehX": 50,

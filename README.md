@@ -51,21 +51,27 @@ heading, scroll to zoom, drag the background to pan.
   crosswalk polygon) along the trajectory. It is `None` when the prediction
   misses the crosswalk.
 - The **crossing gate** (autoware_mini branch
-  `crosswalk_centerline_endpoint_anchor`) uses projection-free quantities
-  measured at the **conflict point** — where the ego path passes through the
-  crosswalk: the **path crossing angle** (object heading vs the path tangent
-  there, folded to 0–90°) and **moving toward conflict** (heading within 90°
-  of the chord from the prediction's crosswalk entry to the conflict point).
-  Combined with the crossing-axis alignment (`heading_to_crosswalk_angle`
-  folded to 0–90°), the gate blocks objects that cross the ego lane
-  transversally, along the crossing direction, heading toward the conflict
-  point — with no anchor points or side selection to get wrong on long,
+  `crosswalk_centerline_endpoint_anchor`) uses projection-free quantities:
+  the **path crossing angle** (object heading vs the path tangent at the
+  **conflict point** where the path passes through the crosswalk, folded to
+  0–90°), the **local crossing angle** (the same vs the path tangent at the
+  object's own nearest path point), and **moving toward conflict** (heading
+  within 90° of the chord from the prediction's crosswalk entry to the
+  conflict point). The gate blocks objects that cross the ego lane
+  transversally at the conflict point and hold either **crossing
+  certificate** — aligned with the crossing axis (diagonal walkers along
+  long crosswalks on curves) or locally transversal to the road
+  (perpendicular crossers on arbitrarily skewed crosswalks) — while heading
+  toward the conflict point. An object riding along the road holds neither
+  certificate, even where road curvature makes it transversal at the
+  conflict point. No anchor points or side selection to get wrong on long,
   skewed, or asymmetrically mapped crosswalks.
 - Two rules are bundled: the **production rule** (entry-point anchored
   approach angle, blocking under 60° or departing within half of
   `wide_safety_box_width` of the path) and the **combined-gate rule**
-  (`path_crossing_angle > 30°` and axis alignment `< 60°` and toward — or
-  departing but still within the wide box).
+  (`path_crossing_angle > 30°` and (axis alignment `< 60°` or
+  `local_crossing_angle > 30°`) and toward — or departing but still within
+  the wide box).
 
 Not modeled: temporal filtering (the tool evaluates a single frame) and ego
 motion / braking dynamics — the tool answers *should this crosswalk be treated
@@ -85,6 +91,7 @@ object with that object's values bound.
 | `approach_angle` | object heading vs direction to nearest point on ego path, 0–180° (0 = straight at the path) |
 | `trajectory_approach_angle` | same angle taken at the prediction's crosswalk entry point; `None` if the prediction misses the crosswalk |
 | `path_crossing_angle` | object heading vs ego-path tangent at the conflict point (where the path passes through the crosswalk), 0–90°; `None` if the path misses the crosswalk |
+| `local_crossing_angle` | object heading vs ego-path tangent at the object's own nearest path point, 0–90° (0 = moving along the road where it currently is) |
 | `moving_toward_conflict` | object heading within 90° of the direction from the prediction's crosswalk entry to the conflict point (bool); `None` without a conflict point or crosswalk entry |
 | `crosswalk_angle` | crossing axis vs road direction, 0–90° (90 = perpendicular crosswalk) |
 | `heading_to_crosswalk_angle` | object heading vs crossing-axis direction, 0–180° |

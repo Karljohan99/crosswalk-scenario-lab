@@ -105,10 +105,17 @@ def compute(p):
             toward_h = math.atan2(conflict_y - entry.y, conflict_x - entry.x)
             toward = math.degrees(get_angle_between_two_headings(ped_h, toward_h)) < 90
 
+    # local crossing angle: heading vs path tangent at the object's nearest path sample
+    # (same quantization as core.js localPathTangent)
+    local_th = min(pts, key=lambda pt: (pt[0] - ped.x) ** 2 + (pt[1] - ped.y) ** 2)[2]
+    local_angle = math.degrees(get_angle_between_two_headings(ped_h, local_th))
+    local_crossing_angle = min(local_angle, 180 - local_angle)
+
     return {
         'approach_angle': approach,
         'trajectory_approach_angle': traj_angle,
         'path_crossing_angle': crossing_angle,
+        'local_crossing_angle': local_crossing_angle,
         'moving_toward_conflict': toward,
         'crosswalk_angle': cw_angle,
         'heading_to_crosswalk_angle': math.degrees(get_angle_between_two_headings(ped_h, axis_h)),
@@ -133,6 +140,8 @@ CONFIGS = [
     dict(BASE, curvature=-0.05, cwAngleDeg=-12, cwLen=20, cwOffset=8,            # long offset crosswalk,
          pedX=26.51, pedY=-22.23, pedHeadingDeg=127.06, speed=1.6, horizon=8),   # diagonal crosser
     dict(BASE, cwOffset=-14, cwLen=12),                                          # crosswalk shifted off the path
+    dict(BASE, cwAngleDeg=62, cwLen=26, cwWid=6, pedX=31.5, pedY=8.5,            # strongly skewed crosswalk,
+         horizon=6),                                                             # perpendicular crosser
 ]
 
 print(json.dumps([{'params': c, 'expected': compute(c)} for c in CONFIGS], indent=1))

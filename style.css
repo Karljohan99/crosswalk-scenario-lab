@@ -23,6 +23,7 @@
   --angle-cw: #1baf7a;
   --angle-hcw: #4a3aa7;
   --angle-ep: #c2318f;
+  --angle-local: #8a6d1a;
   --veh: #7a52c7;
   --veh-pred: rgba(122,82,199,0.16);
   --path: #52514e;
@@ -50,6 +51,7 @@
     --angle-cw: #199e70;
     --angle-hcw: #9085e9;
     --angle-ep: #e06cbe;
+    --angle-local: #cfa93d;
     --veh: #9d7fe0;
     --veh-pred: rgba(144,133,233,0.20);
     --path: #c3c2b7;
@@ -77,6 +79,7 @@
   --angle-cw: #199e70;
   --angle-hcw: #9085e9;
   --angle-ep: #e06cbe;
+  --angle-local: #cfa93d;
   --veh: #9d7fe0;
   --veh-pred: rgba(144,133,233,0.20);
   --path: #c3c2b7;
